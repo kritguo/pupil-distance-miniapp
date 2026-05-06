@@ -1,0 +1,7 @@
+{
+  "name": "pupil-distance",
+  "private": true,
+  "dependencies": {
+    "@mediapipe/tasks-vision": "^0.10.9"
+  }
+}

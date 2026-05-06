@@ -1,0 +1,37 @@
+# Caddy 配置文件
+# 用于 HTTPS 反向代理
+
+api.domchao.site {
+    # 自动 HTTPS (Let's Encrypt)
+
+    # 反向代理到 iris-service
+    reverse_proxy localhost:8000 {
+        # 健康检查
+        health_uri /health
+        health_interval 30s
+
+        # 超时设置
+        transport http {
+            read_timeout 60s
+            write_timeout 60s
+        }
+    }
+
+    # 日志
+    log {
+        output file /var/log/caddy/api.domchao.site.log {
+            roll_size 10mb
+            roll_keep 5
+        }
+    }
+
+    # 压缩
+    encode gzip
+
+    # 安全头
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        -Server
+    }
+}

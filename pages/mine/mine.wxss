@@ -1,0 +1,166 @@
+page {
+  background: #f5f5f5;
+}
+
+.page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60rpx 0 40rpx;
+  background: #fff;
+}
+
+.avatar {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 50%;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar-text {
+  font-size: 48rpx;
+  color: #fff;
+  font-weight: 500;
+}
+
+.status-badge {
+  margin-top: 20rpx;
+  padding: 8rpx 24rpx;
+  background: #52c41a;
+  color: #fff;
+  font-size: 24rpx;
+  border-radius: 999rpx;
+}
+
+.status-badge.single {
+  background: #fa8c16;
+}
+
+.section {
+  margin-top: 24rpx;
+  background: #fff;
+  padding: 0 32rpx;
+}
+
+.section-title {
+  display: block;
+  padding: 32rpx 0 24rpx;
+  font-size: 28rpx;
+  font-weight: 500;
+  color: #333;
+}
+
+/* 测量记录 */
+.record-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.record-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 28rpx 0;
+  border-bottom: 1rpx solid #eee;
+}
+
+.record-item:last-child {
+  border-bottom: none;
+}
+
+.record-main {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+}
+
+.record-pd {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #000;
+}
+
+.record-face {
+  font-size: 26rpx;
+  color: #666;
+}
+
+.record-sub {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.record-time {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.record-arrow {
+  font-size: 32rpx;
+  color: #ccc;
+}
+
+/* 空记录 */
+.empty-record {
+  padding: 60rpx 0;
+  text-align: center;
+}
+
+.empty-text {
+  display: block;
+  font-size: 28rpx;
+  color: #999;
+}
+
+.empty-tip {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  color: #bbb;
+}
+
+/* 菜单 */
+.menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 32rpx 0;
+  border-bottom: 1rpx solid #eee;
+}
+
+.menu-item:last-child {
+  border-bottom: none;
+}
+
+.menu-text {
+  font-size: 30rpx;
+  color: #333;
+}
+
+.menu-arrow {
+  font-size: 36rpx;
+  color: #ccc;
+}
+
+.footer {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 60rpx;
+}
+
+.version {
+  font-size: 24rpx;
+  color: #bbb;
+}

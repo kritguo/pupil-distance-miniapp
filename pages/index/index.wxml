@@ -1,0 +1,94 @@
+<scroll-view class="page" scroll-y>
+  <view class="bg-orb orb-1"></view>
+  <view class="bg-orb orb-2"></view>
+  <view class="content">
+    <view class="hero">
+      <view class="hero-badge">AI 智能测瞳距</view>
+      <text class="title">10 秒测出瞳距</text>
+      <text class="subtitle">自动识别瞳孔中心，支持手动微调，简单又准确</text>
+      <view class="hero-pills">
+        <text class="pill">卡片定标</text>
+        <text class="pill">正脸拍照</text>
+        <text class="pill">结果含建议</text>
+      </view>
+      <button class="btn-start" bindtap="onStart">开始测量</button>
+      <view class="status-wrap">
+        <text wx:if="{{userStatus !== 'none'}}" class="status-tip">{{statusText}}</text>
+      </view>
+    </view>
+
+    <view class="spotlight">
+      <view class="spotlight-item">
+        <text class="spotlight-title">AI 自动定位</text>
+        <text class="spotlight-desc">瞳孔/鼻梁一键预对齐，拖动微调</text>
+      </view>
+      <view class="spotlight-item">
+        <text class="spotlight-title">10 秒出结果</text>
+        <text class="spotlight-desc">拍照 + 标记 + 建议</text>
+      </view>
+      <view class="spotlight-item">
+        <text class="spotlight-title">三次取中位数</text>
+        <text class="spotlight-desc">¥9.8 含 3 次测量，更稳更准</text>
+      </view>
+    </view>
+
+    <view class="section">
+      <text class="section-title">你将得到</text>
+      <view class="param-list">
+        <view class="param-item">
+          <text class="param-name">瞳距 PD</text>
+          <text class="param-desc">总瞳距、单眼瞳距</text>
+        </view>
+        <view class="param-item">
+          <text class="param-name">脸宽</text>
+          <text class="param-desc">用于推荐合适的镜框宽度（可选）</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="section">
+      <text class="section-title">准备</text>
+      <view class="tag-list">
+        <text class="tag">银行卡/身份证</text>
+        <text class="tag">手机距脸 30-40cm</text>
+        <text class="tag">正脸拍照</text>
+      </view>
+    </view>
+
+    <view class="section">
+      <text class="section-title">流程</text>
+      <view class="step-list">
+        <view class="step-item">
+          <text class="step-num">1</text>
+          <text class="step-text">卡片放眉毛上方额头处（不放下巴），手持且卡片/手机/人脸尽量平行</text>
+        </view>
+        <view class="step-item">
+          <text class="step-num">2</text>
+          <text class="step-text">确认瞳孔与鼻梁位置，必要时微调</text>
+        </view>
+        <view class="step-item">
+          <text class="step-num">3</text>
+          <text class="step-text">对齐卡片边缘，完成测量</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="footer">
+      <text class="notice">仅供线上配镜参数填写参考\n不替代专业验光或医疗建议</text>
+    </view>
+  </view>
+</scroll-view>
+
+<!-- 付费提示弹窗 -->
+<view class="modal-mask" wx:if="{{showPayTip}}" bindtap="closePayTip">
+  <view class="modal-content" catchtap="noop">
+    <view class="modal-body">
+      <text class="modal-title">温馨提示</text>
+      <text class="modal-desc">¥9.8 解锁 3 次测量包，建议取中位数</text>
+      <text class="modal-price">¥9.8 起</text>
+    </view>
+    <view class="modal-footer">
+      <button class="modal-btn" bindtap="continueMeasure">开始测量</button>
+    </view>
+  </view>
+</view>

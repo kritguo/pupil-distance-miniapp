@@ -1,0 +1,168 @@
+page {
+  background: #fff;
+}
+
+.page {
+  min-height: 100vh;
+}
+
+.content {
+  padding: 80rpx 48rpx;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 80rpx;
+}
+
+.title {
+  display: block;
+  font-size: 48rpx;
+  font-weight: 700;
+  color: #000;
+}
+
+.desc {
+  display: block;
+  margin-top: 16rpx;
+  font-size: 28rpx;
+  color: #666;
+}
+
+.form {
+  margin-bottom: 60rpx;
+}
+
+.input {
+  width: 100%;
+  height: 96rpx;
+  padding: 0 32rpx;
+  font-size: 32rpx;
+  background: #f5f5f5;
+  border-radius: 16rpx;
+  box-sizing: border-box;
+}
+
+.btn-activate {
+  margin-top: 32rpx;
+  width: 100%;
+  height: 96rpx;
+  background: #000;
+  color: #fff;
+  font-size: 32rpx;
+  font-weight: 500;
+  border-radius: 999rpx;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-activate::after {
+  border: none;
+}
+
+.btn-activate[disabled] {
+  background: #ccc;
+  color: #fff;
+}
+
+.tips {
+  padding: 32rpx;
+  background: #f9f9f9;
+  border-radius: 16rpx;
+}
+
+.tips-title {
+  display: block;
+  font-size: 26rpx;
+  color: #999;
+  margin-bottom: 20rpx;
+}
+
+.tips-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 12rpx 0;
+}
+
+.tips-label {
+  font-size: 28rpx;
+  color: #333;
+}
+
+.tips-value {
+  font-size: 28rpx;
+  color: #666;
+}
+
+/* 激活成功 */
+.content.success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 160rpx;
+}
+
+.success-icon {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 50%;
+  background: #52c41a;
+  color: #fff;
+  font-size: 60rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.success-title {
+  margin-top: 40rpx;
+  font-size: 40rpx;
+  font-weight: 600;
+  color: #000;
+}
+
+.success-desc {
+  margin-top: 20rpx;
+  font-size: 28rpx;
+  color: #666;
+  text-align: center;
+  line-height: 1.6;
+}
+
+.btn-start {
+  margin-top: 60rpx;
+  width: 400rpx;
+  height: 96rpx;
+  background: #000;
+  color: #fff;
+  font-size: 32rpx;
+  font-weight: 500;
+  border-radius: 999rpx;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-start::after {
+  border: none;
+}
+
+.upgrade-tip {
+  margin-top: 40rpx;
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.upgrade-text {
+  font-size: 26rpx;
+  color: #999;
+}
+
+.upgrade-link {
+  font-size: 26rpx;
+  color: #1890ff;
+}

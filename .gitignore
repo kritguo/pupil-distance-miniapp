@@ -1,0 +1,31 @@
+.DS_Store
+node_modules/
+miniprogram_npm/
+
+# Local IDE / agent state
+.claude/
+.cloudbase/
+
+# WeChat private project settings
+project.private.config.json
+
+# Build / package artifacts
+dist/
+build/
+coverage/
+*.log
+*.tar.gz
+*.zip
+
+# Python caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Secrets
+.env
+.env.*
+*.pem
+*.key

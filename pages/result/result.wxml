@@ -1,0 +1,230 @@
+<scroll-view class="page" scroll-y>
+  <view wx:if="{{empty}}" class="empty">
+    <text class="empty-text">暂无测量结果</text>
+    <button class="btn-primary" bindtap="onRetake">开始测量</button>
+  </view>
+
+    <view wx:else class="content">
+    <!-- 付费状态提示 -->
+    <view class="status-bar" wx:if="{{isPaid}}">
+      <text class="status-text saved" wx:if="{{isUnlimited}}">已保存到「我的」</text>
+      <text class="status-text warning" wx:else>本次结果不会保存，请截图留存</text>
+    </view>
+
+    <!-- 主数据：总瞳距 -->
+    <view class="hero">
+      <text class="hero-value {{!isPaid && trialMode ? 'masked' : ''}}">{{displayResult.totalPd}}<text class="hero-unit">mm</text></text>
+      <text class="hero-label">总瞳距</text>
+      <text class="hero-source">{{displayResultSource}}</text>
+    </view>
+
+    <!-- 分组详情 -->
+    <view class="result-groups">
+      <!-- 瞳距组 -->
+      <view class="result-group">
+        <text class="group-title">单眼瞳距 PD</text>
+        <view class="group-items">
+          <view class="group-item">
+            <text class="item-label">左眼</text>
+            <text class="item-value {{!isPaid && trialMode ? 'masked' : ''}}">{{displayResult.leftPd}} mm</text>
+          </view>
+          <view class="group-item">
+            <text class="item-label">右眼</text>
+            <text class="item-value {{!isPaid && trialMode ? 'masked' : ''}}">{{displayResult.rightPd}} mm</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 脸宽 -->
+      <view class="result-group" wx:if="{{displayResult.faceWidth}}">
+        <text class="group-title">脸部测量</text>
+        <view class="group-items">
+          <view class="group-item">
+            <text class="item-label">脸宽</text>
+            <text class="item-value {{!isPaid && trialMode ? 'masked' : ''}}">{{displayResult.faceWidth}} mm</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 可信度 -->
+    <view class="confidence">
+      <text class="confidence-label">可信度</text>
+      <text class="confidence-value {{displayResult.confidence === '高' ? 'high' : (displayResult.confidence === '低' ? 'low' : '')}} {{!isPaid && trialMode ? 'masked' : ''}}">{{displayResult.confidence}}</text>
+    </view>
+
+    <text class="tip">建议重复测量 3 次取中位数</text>
+    <text class="tip" wx:if="{{!displayResult.faceWidth}}">脸宽未测，将不提供镜框推荐</text>
+    <view class="progress" wx:if="{{progressText && !fromRecord}}">
+      <text class="progress-text">{{progressText}}</text>
+    </view>
+    <view class="median-section" wx:if="{{medianResult && !fromRecord}}">
+      <view class="median-header">
+        <text class="median-title">中位数推荐</text>
+        <text class="median-count">基于 {{medianCount}} 次测量</text>
+      </view>
+      <view class="median-row">
+        <text class="median-label">总瞳距</text>
+        <text class="median-value {{!isPaid && trialMode ? 'masked' : ''}}">{{medianResult.totalPd}} mm</text>
+      </view>
+      <view class="median-row">
+        <text class="median-label">左眼 PD</text>
+        <text class="median-value {{!isPaid && trialMode ? 'masked' : ''}}">{{medianResult.leftPd}} mm</text>
+      </view>
+      <view class="median-row">
+        <text class="median-label">右眼 PD</text>
+        <text class="median-value {{!isPaid && trialMode ? 'masked' : ''}}">{{medianResult.rightPd}} mm</text>
+      </view>
+      <view class="median-row" wx:if="{{medianResult.faceWidth}}">
+        <text class="median-label">脸宽</text>
+        <text class="median-value {{!isPaid && trialMode ? 'masked' : ''}}">{{medianResult.faceWidth}} mm</text>
+      </view>
+      <view class="median-row">
+        <text class="median-label">三次波动</text>
+        <text class="median-value">{{medianResult.totalSpread}} mm · {{medianResult.consistency}}</text>
+      </view>
+      <text class="median-warning" wx:if="{{medianWarning}}">{{medianWarning}}</text>
+    </view>
+
+    <view class="trial-section" wx:if="{{trialMode}}">
+      <text class="trial-title">三次测量结果</text>
+      <view class="trial-list">
+        <view class="trial-card" wx:for="{{trialResults}}" wx:key="timestamp" wx:for-index="index">
+          <text class="trial-index">第 {{index + 1}} 次</text>
+          <view class="trial-row">
+            <text class="trial-label">总瞳距</text>
+            <text class="trial-value {{!isPaid && trialMode ? 'masked' : ''}}">{{item.totalPd}} mm</text>
+          </view>
+          <view class="trial-row">
+            <text class="trial-label">左眼 PD</text>
+            <text class="trial-value {{!isPaid && trialMode ? 'masked' : ''}}">{{item.leftPd}} mm</text>
+          </view>
+          <view class="trial-row">
+            <text class="trial-label">右眼 PD</text>
+            <text class="trial-value {{!isPaid && trialMode ? 'masked' : ''}}">{{item.rightPd}} mm</text>
+          </view>
+          <view class="trial-row" wx:if="{{item.faceWidth}}">
+            <text class="trial-label">脸宽</text>
+            <text class="trial-value {{!isPaid && trialMode ? 'masked' : ''}}">{{item.faceWidth}} mm</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 镜框推荐（自动计算） -->
+    <view class="advice-section" wx:if="{{frameRecommendation && !(trialMode && !isPaid)}}">
+      <view class="advice-header">
+        <text class="advice-title">镜框推荐</text>
+      </view>
+      <view class="advice-result frame">
+        <view class="advice-result-row">
+          <text class="advice-label">您的脸宽</text>
+          <text class="advice-value">{{frameRecommendation.faceWidth}} mm</text>
+        </view>
+        <view class="advice-result-row">
+          <text class="advice-label">脸型</text>
+          <text class="advice-value">{{frameRecommendation.faceType}}</text>
+        </view>
+        <view class="advice-result-row main">
+          <text class="advice-label">推荐镜框宽度</text>
+          <text class="advice-value highlight">{{frameRecommendation.minFrameWidth}}-{{frameRecommendation.maxFrameWidth}} mm</text>
+        </view>
+        <text class="advice-desc">{{frameRecommendation.desc}}</text>
+      </view>
+    </view>
+
+    <!-- 镜片建议 -->
+    <view class="advice-section" wx:if="{{!(trialMode && !isPaid)}}">
+      <view class="advice-header">
+        <text class="advice-title">镜片建议</text>
+      </view>
+      <view class="advice-input-row">
+        <input
+          class="advice-input"
+          type="digit"
+          placeholder="输入度数"
+          value="{{degree}}"
+          bindinput="onDegreeInput"
+        />
+      </view>
+      <view class="advice-usage-row">
+        <text class="advice-usage-label">用途：</text>
+        <radio-group class="usage-group" bindchange="onUsageChange">
+          <label wx:for="{{usageOptions}}" wx:key="value" class="usage-option {{selectedUsage === item.value ? 'selected' : ''}}">
+            <radio value="{{item.value}}" checked="{{selectedUsage === item.value}}" hidden />
+            <text>{{item.label}}</text>
+          </label>
+        </radio-group>
+      </view>
+      <view class="btn-calc full" bindtap="calcLensAdvice">获取建议</view>
+      <view wx:if="{{lensAdvice}}" class="advice-result lens">
+        <view class="advice-result-row">
+          <text class="advice-label">您的度数</text>
+          <text class="advice-value">{{lensAdvice.degree}}度</text>
+        </view>
+        <view class="advice-result-row">
+          <text class="advice-label">推荐折射率</text>
+          <text class="advice-value">{{lensAdvice.index}}（{{lensAdvice.indexName}}）</text>
+        </view>
+        <view class="advice-result-row">
+          <text class="advice-label">推荐镜片</text>
+          <text class="advice-value">{{lensAdvice.lensType}}</text>
+        </view>
+        <view class="advice-result-row">
+          <text class="advice-label">推荐膜层</text>
+          <text class="advice-value">{{lensAdvice.coating}}</text>
+        </view>
+        <text class="advice-desc">{{lensAdvice.usageDesc}}</text>
+      </view>
+    </view>
+
+    <view class="actions" wx:if="{{!(trialMode && !isPaid)}}">
+      <button class="btn-primary" bindtap="onCopy">复制结果</button>
+      <button class="btn-secondary" bindtap="onRetake">{{nextMeasureText}}</button>
+      <button class="btn-text" bindtap="onBackHome">返回首页</button>
+    </view>
+
+    <!-- 单次用户升级入口 -->
+    <view class="upgrade-section" wx:if="{{isPaid && !isUnlimited}}">
+      <text class="upgrade-text">想要无限次测量、保存数据？</text>
+      <text class="upgrade-link" bindtap="onUpgrade">补 ¥10 解锁</text>
+    </view>
+
+    <text class="notice">仅供参考，不替代专业验光</text>
+  </view>
+</scroll-view>
+
+<!-- 付费选择弹窗 -->
+<view class="pay-modal-mask" wx:if="{{showPayModal}}">
+  <view class="pay-modal">
+    <view class="pay-modal-header">
+      <text class="pay-modal-title">解锁测量结果</text>
+      <text class="pay-modal-close" bindtap="closePayModal">×</text>
+    </view>
+
+    <view class="pay-plans">
+      <view class="pay-plan {{selectedPlan === 'single' ? 'selected' : ''}}" bindtap="selectPlan" data-plan="single">
+        <text class="plan-price">¥9.8</text>
+        <text class="plan-name">3 次测量包</text>
+        <view class="plan-features">
+          <text class="plan-feature">· 共 3 次测量</text>
+          <text class="plan-feature">· 取中位数更准</text>
+        </view>
+      </view>
+
+      <view class="pay-plan {{selectedPlan === 'unlimited' ? 'selected' : ''}}" bindtap="selectPlan" data-plan="unlimited">
+        <view class="plan-badge">推荐</view>
+        <text class="plan-price">¥19.8</text>
+        <text class="plan-name">无限测量</text>
+        <view class="plan-features">
+          <text class="plan-feature">· 无限次数</text>
+          <text class="plan-feature">· 中位数推荐</text>
+          <text class="plan-feature">· 数据保存</text>
+          <text class="plan-feature">· 随时回看</text>
+        </view>
+      </view>
+    </view>
+
+    <button class="pay-btn" bindtap="onPay">确认支付</button>
+  </view>
+</view>

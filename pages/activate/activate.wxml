@@ -1,0 +1,49 @@
+<view class="page">
+  <!-- 激活表单 -->
+  <view class="content" wx:if="{{!activated}}">
+    <view class="header">
+      <text class="title">激活卡密</text>
+      <text class="desc">请输入您购买的卡密</text>
+    </view>
+
+    <view class="form">
+      <input
+        class="input"
+        placeholder="请输入卡密"
+        value="{{cardKey}}"
+        bindinput="onInput"
+        maxlength="20"
+      />
+      <button class="btn-activate" bindtap="onActivate" disabled="{{!cardKey}}">
+        立即激活
+      </button>
+    </view>
+
+    <view class="tips">
+      <text class="tips-title">卡密类型说明</text>
+      <view class="tips-item">
+        <text class="tips-label">单次卡密</text>
+        <text class="tips-value">可测量 3 次</text>
+      </view>
+      <view class="tips-item">
+        <text class="tips-label">无限卡密</text>
+        <text class="tips-value">无限次测量 + 数据保存</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 激活成功 -->
+  <view class="content success" wx:if="{{activated}}">
+    <view class="success-icon">✓</view>
+    <text class="success-title">激活成功</text>
+    <text class="success-desc" wx:if="{{activateType === 'single'}}">您已获得 3 次测量机会</text>
+    <text class="success-desc" wx:if="{{activateType === 'unlimited'}}">您已解锁无限次测量\n测量数据将自动保存</text>
+
+    <button class="btn-start" bindtap="goMeasure">开始测量</button>
+
+    <view class="upgrade-tip" wx:if="{{activateType === 'single'}}">
+      <text class="upgrade-text">想要无限次测量？</text>
+      <text class="upgrade-link" bindtap="onUpgrade">补 ¥10 解锁</text>
+    </view>
+  </view>
+</view>
