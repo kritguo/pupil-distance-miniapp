@@ -1,5 +1,6 @@
-// Face++ API 配置
-// 注意：不要把真实 API Key 提交到 GitHub。正式上线请将密钥放到云函数或后端环境变量。
+// 智能辅助测量配置
+// 默认不依赖云端识别，主流程是本地拍照、智能校准提示、手动微调和三次中位数修复。
+// 注意：不要把真实 API Key 提交到 GitHub。若后续启用第三方识别，请将密钥放到后端私有环境。
 
 module.exports = {
   cloud: {
@@ -25,8 +26,8 @@ module.exports = {
     wasmPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.21/wasm'
   },
   cloudAuto: {
-    enabled: true,
-    endpoint: 'https://api.domchao.site/v1/measure',
+    enabled: false,
+    endpoint: '',
     quality: 70
   }
 }

@@ -595,9 +595,6 @@ Page({
     const cloudAuto = config.cloudAuto || {}
     const useCloudAuto = cloudAuto.enabled && !!cloudAuto.endpoint
     this.useCloudAuto = useCloudAuto
-    if (!useCloudAuto) {
-      this.prepareCardBase64(path)
-    }
 
     wx.getImageInfo({
       src: path,
@@ -639,7 +636,7 @@ Page({
           wx.hideLoading()
           this.setData({ detecting: false })
           wx.showToast({
-            title: '云端识别未开启，请手动调整',
+            title: '已进入智能校准',
             icon: 'none'
           })
         }
@@ -658,7 +655,7 @@ Page({
   requestAutoMeasureServer(imagePath, displayWidth, displayHeight) {
     const cloudAuto = config.cloudAuto || {}
     if (!cloudAuto.enabled || !cloudAuto.endpoint) {
-      this.handleCloudAutoFail(imagePath, displayWidth, displayHeight, '云端识别未开启，请手动调整')
+      this.handleCloudAutoFail(imagePath, displayWidth, displayHeight, '已进入智能校准')
       return
     }
     wx.compressImage({
@@ -761,12 +758,15 @@ Page({
   },
 
   handleCloudAutoFail(imagePath, displayWidth, displayHeight, toastTitle) {
-    this.prepareCardBase64(imagePath)
+    const cloudAuto = config.cloudAuto || {}
+    if (cloudAuto.enabled && cloudAuto.endpoint) {
+      this.prepareCardBase64(imagePath)
+    }
     this.applyDefaultPoints(displayWidth, displayHeight, imagePath)
     wx.hideLoading()
     this.setData({ detecting: false })
     wx.showToast({
-      title: toastTitle || '云端识别失败，请手动调整',
+      title: toastTitle || '已进入智能校准',
       icon: 'none',
       duration: 2000
     })
@@ -1095,7 +1095,7 @@ Page({
       wx.hideLoading()
       this.setData({ detecting: false })
       wx.showToast({
-        title: '云端识别失败，请手动调整',
+        title: '已进入智能校准',
         icon: 'none',
         duration: 2000
       })

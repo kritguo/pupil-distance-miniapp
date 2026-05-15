@@ -4,8 +4,8 @@
   <view class="content">
     <view class="hero">
       <view class="hero-badge">AI 智能测瞳距</view>
-      <text class="title">10 秒测出瞳距</text>
-      <text class="subtitle">自动识别瞳孔中心，支持手动微调，简单又准确</text>
+      <text class="title">智能测出瞳距</text>
+      <text class="subtitle">拍照后智能校准，手动微调关键点，三次取中位数更稳</text>
       <view class="hero-pills">
         <text class="pill">卡片定标</text>
         <text class="pill">正脸拍照</text>
@@ -19,12 +19,12 @@
 
     <view class="spotlight">
       <view class="spotlight-item">
-        <text class="spotlight-title">AI 自动定位</text>
-        <text class="spotlight-desc">瞳孔/鼻梁一键预对齐，拖动微调</text>
+        <text class="spotlight-title">智能校准</text>
+        <text class="spotlight-desc">按瞳孔、鼻梁、卡片边缘逐步对齐</text>
       </view>
       <view class="spotlight-item">
-        <text class="spotlight-title">10 秒出结果</text>
-        <text class="spotlight-desc">拍照 + 标记 + 建议</text>
+        <text class="spotlight-title">智能修复</text>
+        <text class="spotlight-desc">异常值拦截，结果波动提示重测</text>
       </view>
       <view class="spotlight-item">
         <text class="spotlight-title">三次取中位数</text>
