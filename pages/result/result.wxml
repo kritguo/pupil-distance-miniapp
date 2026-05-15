@@ -54,7 +54,6 @@
     </view>
 
     <text class="tip">建议重复测量 3 次取中位数</text>
-    <text class="tip" wx:if="{{!displayResult.faceWidth}}">脸宽未测，将不提供镜框推荐</text>
     <view class="progress" wx:if="{{progressText && !fromRecord}}">
       <text class="progress-text">{{progressText}}</text>
     </view>

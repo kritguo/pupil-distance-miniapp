@@ -40,8 +40,8 @@
           <text class="param-desc">总瞳距、单眼瞳距</text>
         </view>
         <view class="param-item">
-          <text class="param-name">脸宽</text>
-          <text class="param-desc">用于推荐合适的镜框宽度（可选）</text>
+          <text class="param-name">三次统计</text>
+          <text class="param-desc">中位数、波动范围、可信度</text>
         </view>
       </view>
     </view>

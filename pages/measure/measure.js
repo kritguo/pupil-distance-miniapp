@@ -481,13 +481,12 @@ Page({
   data: {
     stage: 'capture',
     step: 0,
-    totalSteps: 4,
-    stepLabels: ['瞳孔位置', '鼻梁中线', '脸部边缘', '卡片'],
+    totalSteps: 3,
+    stepLabels: ['瞳孔位置', '鼻梁中线', '卡片边缘'],
     stepTips: [
-      '拖动两个点，对准瞳孔中心',
+      '已预放两个点，只需确认并拖到瞳孔中心',
       '拖动竖线，对准鼻梁中线',
-      '拖动两条竖线，对准颧骨外缘（脸最宽处）',
-      '拖动两条竖线，对准横放卡片的左右边缘（卡片尽量与屏幕平行）'
+      '已预放卡片边缘线，拖动到横放卡片左右边缘'
     ],
     cameraPosition: 'front',
     windowWidth: 0,
@@ -500,11 +499,11 @@ Page({
     rightEye: { x: 0, y: 0 },
     // Step 1: 鼻梁中线
     centerX: 0,
-    // Step 2: 脸部边缘
+    // 可选脸宽参考，默认不进入主流程
     faceLeftX: 0,
     faceRightX: 0,
-    skipFaceWidth: false,
-    // Step 3: 银行卡
+    skipFaceWidth: true,
+    // Step 2: 银行卡
     cardLeftX: 0,
     cardRightX: 0,
     cardWidthMm: CARD_WIDTH_MM,
@@ -876,6 +875,7 @@ Page({
         centerX: this.makeLineX(safeLineCenter(noseX, displayWidth)),
         faceLeftX: this.makeLineX(safeLineCenter(displayWidth * 0.1, displayWidth)),
         faceRightX: this.makeLineX(safeLineCenter(displayWidth * 0.9, displayWidth)),
+        skipFaceWidth: true,
         cardLeftX: this.makeLineX(safeLineCenter(displayWidth * 0.15, displayWidth)),
         cardRightX: this.makeLineX(safeLineCenter(displayWidth * 0.85, displayWidth)),
         autoFaceReady: true
@@ -1031,6 +1031,7 @@ Page({
       centerX: this.makeLineX(safeLineCenter(noseX, displayWidth)),
       faceLeftX: this.makeLineX(safeLineCenter(faceLeftX, displayWidth)),
       faceRightX: this.makeLineX(safeLineCenter(faceRightX, displayWidth)),
+      skipFaceWidth: true,
       cardLeftX,
       cardRightX,
       autoFaceReady: true
@@ -1901,6 +1902,7 @@ Page({
       centerX,
       faceLeftX: faceLeftXLine,
       faceRightX: faceRightXLine,
+      skipFaceWidth: true,
       cardLeftX,
       cardRightX,
       debugFaceRect,
@@ -2295,6 +2297,7 @@ Page({
       centerX,
       faceLeftX,
       faceRightX,
+      skipFaceWidth: true,
       cardLeftX,
       cardRightX
     })
@@ -2389,6 +2392,7 @@ Page({
       centerX,
       faceLeftX: faceLeftXLine,
       faceRightX: faceRightXLine,
+      skipFaceWidth: true,
       cardLeftX,
       cardRightX
     })
@@ -2530,21 +2534,13 @@ Page({
   prevStep() {
     const nextStep = Math.max(this.data.step - 1, 0)
     const dragData = this.syncDragCache()
-    const nextData = { ...dragData, step: nextStep }
-    if (nextStep === 2) {
-      nextData.skipFaceWidth = false
-    }
-    this.setData(nextData)
+    this.setData({ ...dragData, step: nextStep })
   },
 
   nextStep() {
     if (this.data.step < this.data.totalSteps - 1) {
       const dragData = this.syncDragCache()
-      const nextData = { ...dragData, step: this.data.step + 1 }
-      if (this.data.step === 2) {
-        nextData.skipFaceWidth = false
-      }
-      this.setData(nextData)
+      this.setData({ ...dragData, step: this.data.step + 1 })
       return
     }
     this.calculateResult()
@@ -2555,7 +2551,7 @@ Page({
     this.setData({
       ...dragData,
       skipFaceWidth: true,
-      step: 3
+      step: this.data.totalSteps - 1
     })
   },
 
@@ -2606,7 +2602,7 @@ Page({
         title: '卡片对齐异常，请重新对准卡片左右边缘',
         icon: 'none'
       })
-      this.setData({ step: 3 })
+      this.setData({ step: this.data.totalSteps - 1 })
       return
     }
     if (cardRatio < 0.12) {
@@ -2614,7 +2610,7 @@ Page({
         title: '卡片在画面中过小，请靠近镜头',
         icon: 'none'
       })
-      this.setData({ step: 3 })
+      this.setData({ step: this.data.totalSteps - 1 })
       return
     }
     if (eyeYDiff > eyeDistance * MAX_EYE_LEVEL_RATIO) {
@@ -2689,7 +2685,7 @@ Page({
             return
           }
           if (autoMode) {
-            this.setData({ step: 3, autoMeasureEnabled: false })
+            this.setData({ step: this.data.totalSteps - 1, autoMeasureEnabled: false })
             return
           }
           this.saveResultAndGo(result)
@@ -2789,7 +2785,7 @@ Page({
       stage: 'capture',
       step: 0,
       photoPath: '',
-      skipFaceWidth: false,
+      skipFaceWidth: true,
       autoMeasureEnabled: true,
       autoFaceReady: false,
       autoMeasureDone: false

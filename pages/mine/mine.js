@@ -62,7 +62,7 @@ Page({
   onAbout() {
     wx.showModal({
       title: '关于我们',
-      content: '瞳距测量小程序，帮助您测量瞳距和脸宽，获取配镜建议。仅供参考，不替代专业验光。',
+      content: '瞳距测量小程序，帮助您测量总瞳距和单眼瞳距，获取配镜参数参考。仅供参考，不替代专业验光。',
       showCancel: false
     })
   }

@@ -103,37 +103,9 @@
         <view class="line-tag">鼻梁</view>
       </movable-view>
 
-      <!-- Step 2: 脸部边缘（2条竖线） -->
+      <!-- Step 2: 银行卡边界线 -->
       <movable-view
         wx:if="{{step === 2}}"
-        class="line-wrap face-edge"
-        x="{{faceLeftX}}"
-        y="0"
-        direction="horizontal"
-        friction="{{dragFriction}}"
-        damping="{{dragDamping}}"
-        bindchange="onFaceLeftMove"
-      >
-        <view class="line"></view>
-        <view class="line-tag">左脸</view>
-      </movable-view>
-      <movable-view
-        wx:if="{{step === 2}}"
-        class="line-wrap face-edge"
-        x="{{faceRightX}}"
-        y="0"
-        direction="horizontal"
-        friction="{{dragFriction}}"
-        damping="{{dragDamping}}"
-        bindchange="onFaceRightMove"
-      >
-        <view class="line"></view>
-        <view class="line-tag">右脸</view>
-      </movable-view>
-
-      <!-- Step 3: 银行卡边界线 -->
-      <movable-view
-        wx:if="{{step === 3}}"
         class="line-wrap card"
         x="{{cardLeftX}}"
         y="0"
@@ -146,7 +118,7 @@
         <view class="line-tag">卡左</view>
       </movable-view>
       <movable-view
-        wx:if="{{step === 3}}"
+        wx:if="{{step === 2}}"
         class="line-wrap card"
         x="{{cardRightX}}"
         y="0"
@@ -177,15 +149,11 @@
         <view class="step-dots">
           <view class="dot {{step === 0 ? 'active' : (step > 0 ? 'done' : '')}}"></view>
           <view class="dot {{step === 1 ? 'active' : (step > 1 ? 'done' : '')}}"></view>
-          <view class="dot {{step === 2 ? 'active' : (step > 2 ? 'done' : '')}}"></view>
-          <view class="dot {{step === 3 ? 'active' : ''}}"></view>
+          <view class="dot {{step === 2 ? 'active' : ''}}"></view>
         </view>
       </view>
       <text class="floating-tip">{{stepTips[step]}}</text>
-      <view class="skip-face-row" wx:if="{{step === 2}}">
-        <view class="skip-face-btn" bindtap="skipFaceWidth">跳过脸宽</view>
-      </view>
-      <view class="card-config" wx:if="{{step === 3}}">
+      <view class="card-config" wx:if="{{step === 2}}">
         <text class="card-config-title">卡片类型</text>
         <radio-group class="card-options" bindchange="onCardTypeChange">
           <label wx:for="{{cardOptions}}" wx:key="value" class="card-option {{selectedCard === item.value ? 'selected' : ''}}">
