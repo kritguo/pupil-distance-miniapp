@@ -67,22 +67,35 @@ function consume(resultKey) {
   })
 }
 
-// 支付成功后轮询同步权益（发货回调 vpayNotify 发放，可能稍有延迟，重试一次）
+// 支付成功后：调 vpayConfirm 主动查单发权益，再同步本地缓存
 function pollEntitlementAfterPay(outTradeNo, resolve) {
   wx.showLoading({ title: '确认支付结果...', mask: true })
-  syncEntitlement().then((ent) => {
-    const granted = ent && (ent.status === 'unlimited' || ent.remainCount > 0)
-    if (granted) {
-      wx.hideLoading()
-      resolve({ ok: true, ent, outTradeNo })
-      return
-    }
-    setTimeout(() => {
-      syncEntitlement().then((ent2) => {
+  wx.cloud.callFunction({
+    name: 'vpayConfirm',
+    data: { outTradeNo },
+    success: (res) => {
+      const out = res && res.result
+      if (out && out.ok) userUtil.applyServerEntitlement(out)
+      syncEntitlement().then((ent) => {
         wx.hideLoading()
-        resolve({ ok: true, ent: ent2 || ent, outTradeNo })
+        const e = ent || out
+        const granted = e && (e.status === 'unlimited' || e.remainCount > 0)
+        resolve(
+          granted
+            ? { ok: true, ent: e, outTradeNo }
+            : {
+                ok: false,
+                code: 'GRANT_PENDING',
+                message: '支付成功，权益确认中，请稍后在「我的」查看',
+                outTradeNo
+              }
+        )
       })
-    }, 1500)
+    },
+    fail: () => {
+      wx.hideLoading()
+      resolve({ ok: false, code: 'CONFIRM_FAIL', message: '支付成功，权益确认失败，请稍后在「我的」重试' })
+    }
   })
 }
 
