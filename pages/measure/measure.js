@@ -132,6 +132,7 @@ Page({
         wx.request({
           url: cloudAuto.endpoint,
           method: 'POST',
+          timeout: 30000,
           header: { 'Content-Type': 'application/json' },
           data: {
             image_base64: readRes.data,
@@ -181,6 +182,7 @@ Page({
               config: { env: cloudAuto.containerEnv || '' },
               path: cloudAuto.path || '/v1/measure',
               method: 'POST',
+              timeout: 30000,
               header: {
                 'X-WX-SERVICE': cloudAuto.service,
                 'content-type': 'application/json'
