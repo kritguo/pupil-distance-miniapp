@@ -36,6 +36,11 @@ def render_markdown(report: Report, results: List[SampleResult],
     lines.append("")
     lines.append(f"**建议把 `PD_CALIBRATION` 设为 {report.k_mae}**(最小化 MAE)。")
     lines.append(f"参考:令平均误差归零的无偏系数 = {report.k_unbiased}。")
+    if report.calibration_at_boundary:
+        lines.append("")
+        lines.append("> ⚠️ **警告:最优系数命中了搜索范围边界 "
+                     f"[{report.k_mae}],真实最优值可能在范围外。这通常意味着系统偏差异常大"
+                     "(虹膜假设或数据有问题),请先核查数据与拍摄,不要直接采用此系数。**")
     lines.append("")
     lines.append("| 指标 | 标定前 | 标定后 |")
     lines.append("|---|---|---|")

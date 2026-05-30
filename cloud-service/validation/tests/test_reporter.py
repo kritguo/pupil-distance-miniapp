@@ -32,3 +32,11 @@ def test_write_csv_creates_file(tmp_path):
     assert out.exists()
     text = out.read_text(encoding="utf-8")
     assert "filename" in text and "x.jpg" in text
+
+
+def test_markdown_warns_on_boundary():
+    from validation.analyzer import analyze as _analyze
+    results = [_sr(50.0, 100.0), _sr(50.0, 100.0)]  # needs k=2.0 → boundary
+    rep = _analyze(results)
+    md = render_markdown(rep, results, [])
+    assert "警告" in md and "边界" in md

@@ -2,6 +2,12 @@ from dataclasses import dataclass
 from typing import List, Optional
 import numpy as np
 
+# 标定系数网格搜索范围。±50% 已覆盖任何现实情形:虹膜假设 11.7mm 偏差超过这个
+# 意味着方法根本性失效,此时命中边界会在报告中明确警告,而非静默返回边界值。
+CALIB_LO = 0.5
+CALIB_HI = 1.5
+CALIB_STEP = 0.001
+
 
 @dataclass
 class SampleResult:
@@ -70,7 +76,8 @@ def unbiased_calibration(results: List[SampleResult]) -> float:
 
 
 def optimal_calibration_mae(results: List[SampleResult],
-                            lo: float = 0.80, hi: float = 1.20, step: float = 0.001) -> float:
+                            lo: float = CALIB_LO, hi: float = CALIB_HI,
+                            step: float = CALIB_STEP) -> float:
     """主目标:网格搜索最小化总 PD 的 MAE。"""
     best_k, best_mae = 1.0, float("inf")
     k = lo
@@ -102,6 +109,7 @@ class Report:
     correlations: dict
     card: Optional[dict]
     n_valid: int
+    calibration_at_boundary: bool
 
 
 def iris_variance(results: List[SampleResult]) -> Optional[IrisVariance]:
@@ -164,7 +172,10 @@ def card_comparison(results: List[SampleResult], k: float) -> Optional[dict]:
 
 
 def analyze(results: List[SampleResult]) -> Report:
+    if not results:
+        raise ValueError("analyze() requires at least one valid sample")
     k_mae = optimal_calibration_mae(results)
+    at_boundary = k_mae <= CALIB_LO + CALIB_STEP or k_mae >= CALIB_HI - CALIB_STEP
     return Report(
         metrics_before=compute_metrics(results, 1.0),
         metrics_after=compute_metrics(results, k_mae),
@@ -174,4 +185,5 @@ def analyze(results: List[SampleResult]) -> Report:
         correlations=correlations(results, k_mae),
         card=card_comparison(results, k_mae),
         n_valid=len(results),
+        calibration_at_boundary=at_boundary,
     )

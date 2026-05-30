@@ -1,6 +1,7 @@
 import pytest
 from validation.analyzer import (
     SampleResult, iris_variance, correlations, card_comparison, analyze, Report,
+    optimal_calibration_mae,
 )
 
 
@@ -54,3 +55,22 @@ def test_analyze_bundles_report():
     assert rep.metrics_before.calibration == 1.0
     assert rep.metrics_after.mae < rep.metrics_before.mae
     assert rep.n_valid == 2
+
+
+def test_calibration_boundary_flagged_when_optimum_out_of_range():
+    # 需要 k=2.0(raw=50,true=100),超出 [0.5,1.5] 上界 → 命中边界
+    results = [_sr(50.0, 100.0), _sr(50.0, 100.0)]
+    rep = analyze(results)
+    assert rep.k_mae == pytest.approx(1.5, abs=0.0011)
+    assert rep.calibration_at_boundary is True
+
+
+def test_calibration_not_at_boundary_for_normal_data():
+    results = [_sr(100.0, 110.0), _sr(100.0, 110.0)]
+    rep = analyze(results)
+    assert rep.calibration_at_boundary is False
+
+
+def test_analyze_empty_raises():
+    with pytest.raises(ValueError):
+        analyze([])
