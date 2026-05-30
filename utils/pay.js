@@ -141,11 +141,12 @@ function purchase(plan) {
               // 成功为弱确认，权益以服务端发货回调为准
               success: () => pollEntitlementAfterPay(sign.outTradeNo, resolve),
               fail: (err) => {
+                console.error('[pay] requestVirtualPayment fail:', JSON.stringify(err))
                 const cancelled = err && /cancel/i.test(err.errMsg || '')
                 resolve({
                   ok: false,
                   code: cancelled ? 'CANCELLED' : 'PAY_FAIL',
-                  message: cancelled ? '已取消支付' : '支付未完成：' + ((err && err.errMsg) || '')
+                  message: cancelled ? '已取消支付' : '支付未完成：' + ((err && err.errMsg) || JSON.stringify(err))
                 })
               }
             })

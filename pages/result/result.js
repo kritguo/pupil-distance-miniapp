@@ -322,7 +322,11 @@ Page({
     pay.purchase(plan).then((res) => {
       if (!res || !res.ok) {
         if (res && res.code === 'CANCELLED') return
-        wx.showToast({ title: (res && res.message) || '支付失败', icon: 'none' })
+        wx.showModal({
+          title: '支付未成功',
+          content: ((res && res.message) || '支付失败') + (res && res.code ? `\n[${res.code}]` : ''),
+          showCancel: false
+        })
         return
       }
       // 支付成功，权益已由 pay.purchase 同步到本地
