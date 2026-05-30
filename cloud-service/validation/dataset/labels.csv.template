@@ -1,0 +1,4 @@
+filename,subject_id,true_pd_total,true_pd_left,true_pd_right,notes
+001.jpg,zhang,63.0,31.5,31.5,验光单
+002.jpg,zhang,63.0,31.5,31.5,同一人第二张
+003.jpg,li,60.5,30.0,30.5,

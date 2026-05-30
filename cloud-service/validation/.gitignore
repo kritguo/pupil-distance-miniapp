@@ -1,0 +1,4 @@
+# 人脸照片属隐私,不入库
+dataset/images/
+# 报告产出可保留 markdown,但忽略大体积 csv 缓存
+reports/*.csv
