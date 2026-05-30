@@ -53,7 +53,7 @@
       <text class="confidence-value {{displayResult.confidence === '高' ? 'high' : (displayResult.confidence === '低' ? 'low' : '')}} {{!isPaid ? 'masked' : ''}}">{{isPaid ? displayResult.confidence : '••'}}</text>
     </view>
 
-    <text class="tip">建议重复测量 3 次取中位数</text>
+    <text class="tip">每次测量自动拍 3 张取中位数</text>
     <view class="progress" wx:if="{{progressText && !fromRecord}}">
       <text class="progress-text">{{progressText}}</text>
     </view>
@@ -183,11 +183,6 @@
       <button class="btn-text" bindtap="onBackHome">返回首页</button>
     </view>
 
-    <!-- 单次用户升级入口 -->
-    <view class="upgrade-section" wx:if="{{isPaid && !isUnlimited}}">
-      <text class="upgrade-text">想要一年不限次测量、保存数据？</text>
-      <text class="upgrade-link" bindtap="onUpgrade">补 ¥10 升级年度会员</text>
-    </view>
 
     <text class="notice">仅供参考，不替代专业验光</text>
   </view>
@@ -206,8 +201,8 @@
         <text class="plan-price">¥9.9</text>
         <text class="plan-name">3 次测量包</text>
         <view class="plan-features">
-          <text class="plan-feature">· 共 3 次测量</text>
-          <text class="plan-feature">· 取中位数更准</text>
+          <text class="plan-feature">· 可测 3 次（共 3 个结果）</text>
+          <text class="plan-feature">· 每次自动拍 3 张取中位数</text>
         </view>
       </view>
 

@@ -61,7 +61,7 @@ const buildMedianResult = (results) => {
     rightSpread,
     consistency,
     warning: consistency === '波动大'
-      ? `三次结果最大相差 ${totalSpread}mm，建议重新按同一姿势测 3 次`
+      ? `三张结果最大相差 ${totalSpread}mm，建议按同一姿势重新测量一次（再拍 3 张）`
       : (consistency === '一般'
         ? `三次结果最大相差 ${totalSpread}mm，建议再测一次确认`
         : '')
@@ -408,32 +408,6 @@ Page({
         if (res.confirm) {
           wx.navigateBack()
         }
-      }
-    })
-  },
-
-  // 升级到年度会员（补差价 ¥10）
-  onUpgrade() {
-    wx.showModal({
-      title: '升级确认',
-      content: '补 ¥10 即可解锁年度会员（一年内不限次测量 + 数据保存）',
-      confirmText: '立即升级',
-      success: (res) => {
-        if (!res.confirm) return
-        pay.purchase('upgrade').then((payRes) => {
-          if (!payRes || !payRes.ok) {
-            if (payRes && payRes.code === 'CANCELLED') return
-            wx.showToast({ title: (payRes && payRes.message) || '升级失败', icon: 'none' })
-            return
-          }
-          if (this.data.result && this.data.result.timestamp) {
-            userUtil.addUnlimitedSessionResult(this.data.result)
-          }
-          this.saveRecord()
-          this.setData({ isUnlimited: userUtil.isUnlimited() })
-          this.updateProgress()
-          wx.showToast({ title: '升级成功', icon: 'success' })
-        })
       }
     })
   },
