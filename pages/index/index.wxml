@@ -27,8 +27,8 @@
         <text class="spotlight-desc">异常值拦截，结果波动提示重测</text>
       </view>
       <view class="spotlight-item">
-        <text class="spotlight-title">每次拍 3 张取中位数</text>
-        <text class="spotlight-desc">¥9.9 含 3 次测量（每次拍 3 张）</text>
+        <text class="spotlight-title">一次测量拍 3 张</text>
+        <text class="spotlight-desc">¥9.9 含 3 次测量（一次测量需拍 3 张）</text>
       </view>
     </view>
 
@@ -69,7 +69,7 @@
         </view>
         <view class="step-item">
           <text class="step-num">3</text>
-          <text class="step-text">每次测量自动拍 3 张取中位数，更稳更准</text>
+          <text class="step-text">一次测量需拍 3 张照片，自动取中位数更准</text>
         </view>
       </view>
     </view>
@@ -85,7 +85,7 @@
   <view class="modal-content" catchtap="noop">
     <view class="modal-body">
       <text class="modal-title">温馨提示</text>
-      <text class="modal-desc">¥9.9 解锁 3 次测量包（每次拍 3 张取中位数）</text>
+      <text class="modal-desc">¥9.9 解锁 3 次测量包（一次测量需拍 3 张）</text>
       <text class="modal-price">¥9.9 起</text>
     </view>
     <view class="modal-footer">

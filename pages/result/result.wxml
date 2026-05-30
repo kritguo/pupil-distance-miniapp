@@ -53,7 +53,7 @@
       <text class="confidence-value {{displayResult.confidence === '高' ? 'high' : (displayResult.confidence === '低' ? 'low' : '')}} {{!isPaid ? 'masked' : ''}}">{{isPaid ? displayResult.confidence : '••'}}</text>
     </view>
 
-    <text class="tip">每次测量自动拍 3 张取中位数</text>
+    <text class="tip">一次测量需拍 3 张照片，自动取中位数</text>
     <view class="progress" wx:if="{{progressText && !fromRecord}}">
       <text class="progress-text">{{progressText}}</text>
     </view>
@@ -201,8 +201,8 @@
         <text class="plan-price">¥9.9</text>
         <text class="plan-name">3 次测量包</text>
         <view class="plan-features">
-          <text class="plan-feature">· 可测 3 次（共 3 个结果）</text>
-          <text class="plan-feature">· 每次自动拍 3 张取中位数</text>
+          <text class="plan-feature">· 可测量 3 次</text>
+          <text class="plan-feature">· 一次测量需拍 3 张照片，自动取中位数</text>
         </view>
       </view>
 
