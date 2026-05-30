@@ -1,19 +1,26 @@
 const userUtil = require('../../utils/user.js')
+const pay = require('../../utils/pay.js')
 
 Page({
   data: {
     userStatus: 'none',
     isUnlimited: false,
+    statusText: '',
+    remainCount: 0,
+    annualExpireText: '',
     records: []
   },
 
   onShow() {
+    // 先同步服务端权益，再渲染
+    pay.syncEntitlement().then(() => this.loadData())
     this.loadData()
   },
 
   loadData() {
     const info = userUtil.getUserInfo()
     const records = userUtil.getRecords()
+    const isUnlimited = userUtil.isUnlimited()
 
     // 格式化时间
     const formattedRecords = records.map(r => ({
@@ -23,7 +30,12 @@ Page({
 
     this.setData({
       userStatus: info.status,
-      isUnlimited: info.status === 'unlimited',
+      isUnlimited,
+      statusText: userUtil.getStatusText(),
+      remainCount: info.remainCount || 0,
+      annualExpireText: isUnlimited
+        ? `有效期至 ${userUtil.formatDate(userUtil.getAnnualExpireAt())}`
+        : '',
       records: formattedRecords
     })
   },

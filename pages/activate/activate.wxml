@@ -42,8 +42,8 @@
     <button class="btn-start" bindtap="goMeasure">开始测量</button>
 
     <view class="upgrade-tip" wx:if="{{activateType === 'single'}}">
-      <text class="upgrade-text">想要无限次测量？</text>
-      <text class="upgrade-link" bindtap="onUpgrade">补 ¥10 解锁</text>
+      <text class="upgrade-text">想要一年不限次测量？</text>
+      <text class="upgrade-link" bindtap="onUpgrade">补 ¥10 升级年度会员</text>
     </view>
   </view>
 </view>

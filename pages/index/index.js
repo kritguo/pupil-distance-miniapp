@@ -1,4 +1,5 @@
 const userUtil = require('../../utils/user.js')
+const pay = require('../../utils/pay.js')
 
 Page({
   data: {
@@ -12,6 +13,8 @@ Page({
   },
 
   onShow() {
+    // 同步服务端权益后刷新状态
+    pay.syncEntitlement().then(() => this.updateUserStatus())
     this.updateUserStatus()
   },
 

@@ -3,8 +3,9 @@
     <view class="avatar">
       <text class="avatar-text">我</text>
     </view>
-    <text class="status-badge" wx:if="{{isUnlimited}}">无限测量</text>
-    <text class="status-badge single" wx:elif="{{userStatus === 'single'}}">剩余1次</text>
+    <text class="status-badge" wx:if="{{isUnlimited}}">年度会员</text>
+    <text class="status-badge single" wx:elif="{{userStatus === 'single'}}">剩余 {{remainCount}} 次</text>
+    <text class="status-sub" wx:if="{{annualExpireText}}">{{annualExpireText}}</text>
   </view>
 
   <!-- 测量记录 -->
@@ -28,7 +29,7 @@
     <!-- 无记录 -->
     <view class="empty-record" wx:else>
       <text class="empty-text">暂无记录</text>
-      <text class="empty-tip" wx:if="{{!isUnlimited}}">解锁无限测量后可保存数据</text>
+      <text class="empty-tip" wx:if="{{!isUnlimited}}">开通年度会员后可保存数据</text>
     </view>
   </view>
 

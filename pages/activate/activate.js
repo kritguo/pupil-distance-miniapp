@@ -1,4 +1,5 @@
 const userUtil = require('../../utils/user.js')
+const pay = require('../../utils/pay.js')
 
 Page({
   data: {
@@ -54,20 +55,21 @@ Page({
   },
 
   onUpgrade() {
-    // TODO: 调用支付接口补差价升级
     wx.showModal({
       title: '升级确认',
-      content: '补 ¥10 即可解锁无限次测量和数据保存功能',
+      content: '补 ¥10 即可解锁年度会员（一年内不限次测量 + 数据保存）',
       confirmText: '立即升级',
       success: (res) => {
-        if (res.confirm) {
-          // 模拟支付成功
-          userUtil.upgradeToUnlimited()
-          this.setData({
-            activateType: 'unlimited'
-          })
+        if (!res.confirm) return
+        pay.purchase('upgrade').then((payRes) => {
+          if (!payRes || !payRes.ok) {
+            if (payRes && payRes.code === 'CANCELLED') return
+            wx.showToast({ title: (payRes && payRes.message) || '升级失败', icon: 'none' })
+            return
+          }
+          this.setData({ activateType: 'unlimited' })
           wx.showToast({ title: '升级成功', icon: 'success' })
-        }
+        })
       }
     })
   }

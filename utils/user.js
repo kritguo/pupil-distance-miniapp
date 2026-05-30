@@ -1,12 +1,25 @@
 // 用户状态管理模块
+//
+// 权益（status / remainCount / annualExpireAt）以服务端为准：
+//   - 由 utils/pay.js 调用云函数 getEntitlement / consumeMeasure / 支付成功后，
+//     再通过 applyServerEntitlement() 写入本地缓存。
+//   - 本地缓存只作为离线兜底与 UI 状态，真值在服务端 users 集合。
+// 本地仍保存的 UI 状态：试测缓存、单次三次包、无限会话、历史记录。
+
+const config = require('../config.js')
 
 const USER_KEY = 'pd_user_info'
+
+const isNumber = (value) => typeof value === 'number' && !Number.isNaN(value)
+
+// 测试开关：开启后本地一律按年度会员处理，绕过付费墙（上线前在 config.dev.bypassPay 关掉）
+const isDevBypass = () => !!(config.dev && config.dev.bypassPay)
 
 // 用户状态类型
 // none: 未付费
 // single: 单次（剩余次数 > 0）
 // single_used: 单次已用完
-// unlimited: 无限次
+// unlimited: 年度会员有效期内（一年不限次数）
 
 // 获取用户信息
 function getUserInfo() {
@@ -14,14 +27,48 @@ function getUserInfo() {
   return info || {
     status: 'none',      // none | single | single_used | unlimited
     remainCount: 0,      // 剩余测量次数（单次用户用）
-    records: [],         // 测量记录（无限用户用）
-    lastUnlockedResultTs: null, // 单次用户已解锁的结果时间戳
+    annualExpireAt: 0,   // 年度会员到期时间戳(ms)，0 表示非年度会员
+    records: [],         // 测量记录（年度会员用）
+    lastUnlockedResultTs: null, // 单次用户已解锁的结果时间戳（本地去重，避免重复扣次）
     singleBatch: { id: null, results: [] }, // 单次测量包（3次）
-    unlimitedSession: { id: null, results: [] }, // 无限次测量会话
+    unlimitedSession: { id: null, results: [] }, // 年度会员测量会话
     trialBatch: { id: null, results: [] }, // 试测缓存（未付费）
+    serverSyncedAt: null, // 最近一次服务端权益同步时间
     createTime: null,    // 首次激活时间
     updateTime: null     // 最近更新时间
   }
+}
+
+// 用服务端权益覆盖本地缓存（getEntitlement / consumeMeasure / 支付成功后调用）
+function applyServerEntitlement(ent) {
+  if (!ent || ent.ok === false) return getUserInfo()
+  const info = getUserInfo()
+  if (typeof ent.status === 'string') info.status = ent.status
+  if (isNumber(ent.remainCount)) info.remainCount = ent.remainCount
+  if (isNumber(ent.annualExpireAt)) info.annualExpireAt = ent.annualExpireAt
+  info.serverSyncedAt = Date.now()
+  if (!info.createTime && info.status !== 'none') info.createTime = Date.now()
+  saveUserInfo(info)
+  return info
+}
+
+// 年度会员是否在有效期内（测试开关开启时直接视为会员）
+function isAnnualActive(info) {
+  if (isDevBypass()) return true
+  const data = info || getUserInfo()
+  return !!(data.annualExpireAt && data.annualExpireAt > Date.now())
+}
+
+// 年度会员到期时间戳
+function getAnnualExpireAt() {
+  return getUserInfo().annualExpireAt || 0
+}
+
+// 年度会员剩余天数（向上取整），非会员返回 0
+function getAnnualRemainDays() {
+  const expireAt = getAnnualExpireAt()
+  if (!expireAt || expireAt <= Date.now()) return 0
+  return Math.ceil((expireAt - Date.now()) / (24 * 3600 * 1000))
 }
 
 function ensureSingleBatch(info) {
@@ -48,25 +95,24 @@ function saveUserInfo(info) {
   wx.setStorageSync(USER_KEY, info)
 }
 
-// 检查是否可以免费测量（无限用户或有剩余次数）
+// 检查是否可以免费测量（年度会员或有剩余次数）
 function canMeasureFree() {
   const info = getUserInfo()
-  if (info.status === 'unlimited') return true
+  if (isAnnualActive(info)) return true
   if (info.status === 'single' && info.remainCount > 0) return true
   return false
 }
 
-// 检查是否是无限用户
+// 检查是否是年度会员（有效期内）
 function isUnlimited() {
-  const info = getUserInfo()
-  return info.status === 'unlimited'
+  return isAnnualActive()
 }
 
 // 检查是否需要显示付费提示（首次用户）
 function shouldShowPayTip() {
   const info = getUserInfo()
-  // 无限用户不显示
-  if (info.status === 'unlimited') return false
+  // 年度会员不显示
+  if (isAnnualActive(info)) return false
   // 有剩余次数不显示
   if (info.status === 'single' && info.remainCount > 0) return false
   return true
@@ -82,11 +128,14 @@ function activateSingle() {
   saveUserInfo(info)
 }
 
-// 激活无限
+// 激活年度会员（一年不限次数）——本地乐观更新，真值仍以服务端为准
+const ANNUAL_MS = 365 * 24 * 3600 * 1000
 function activateUnlimited() {
   const info = getUserInfo()
   info.status = 'unlimited'
-  info.remainCount = -1 // 无限
+  info.remainCount = -1 // 不限次
+  const base = Math.max(Date.now(), info.annualExpireAt || 0)
+  info.annualExpireAt = base + ANNUAL_MS
   info.unlimitedSession = { id: Date.now().toString(), results: [] }
   if (!info.createTime) info.createTime = Date.now()
   saveUserInfo(info)
@@ -129,11 +178,13 @@ function getRecords() {
   return info.records || []
 }
 
-// 单次升级到无限（补差价）
+// 单次升级到年度会员（补差价）——本地乐观更新
 function upgradeToUnlimited() {
   const info = getUserInfo()
   info.status = 'unlimited'
   info.remainCount = -1
+  const base = Math.max(Date.now(), info.annualExpireAt || 0)
+  info.annualExpireAt = base + ANNUAL_MS
   ensureUnlimitedSession(info)
   saveUserInfo(info)
 }
@@ -246,12 +297,22 @@ function unlockTrialAsSingle() {
   saveUserInfo(info)
 }
 
+// 格式化到期日期为 YYYY-MM-DD
+function formatDate(timestamp) {
+  if (!timestamp) return ''
+  const d = new Date(timestamp)
+  const m = (d.getMonth() + 1).toString().padStart(2, '0')
+  const day = d.getDate().toString().padStart(2, '0')
+  return `${d.getFullYear()}-${m}-${day}`
+}
+
 // 获取用户状态文本
 function getStatusText() {
   const info = getUserInfo()
+  if (isAnnualActive(info)) {
+    return `年度会员 · 有效期至 ${formatDate(info.annualExpireAt)}`
+  }
   switch (info.status) {
-    case 'unlimited':
-      return '无限次测量'
     case 'single':
       return `剩余 ${info.remainCount} 次`
     case 'single_used':
@@ -264,6 +325,11 @@ function getStatusText() {
 module.exports = {
   getUserInfo,
   saveUserInfo,
+  applyServerEntitlement,
+  isAnnualActive,
+  getAnnualExpireAt,
+  getAnnualRemainDays,
+  formatDate,
   canMeasureFree,
   isUnlimited,
   shouldShowPayTip,

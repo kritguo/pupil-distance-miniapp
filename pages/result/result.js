@@ -1,4 +1,5 @@
 const userUtil = require('../../utils/user.js')
+const pay = require('../../utils/pay.js')
 
 const roundToHalf = (value) => Math.round(value * 2) / 2
 const isNumber = (value) => typeof value === 'number' && !Number.isNaN(value)
@@ -155,8 +156,8 @@ Page({
       trialMode
     })
 
-    // 检查付费状态
-    this.checkPayStatus()
+    // 先同步服务端权益，再检查付费状态
+    this.initEntitlement()
 
     // 自动计算镜框推荐
     this.calcFrameRecommendation(result.faceWidth)
@@ -166,55 +167,60 @@ Page({
     }
   },
 
-  // 检查付费状态
+  // 同步服务端权益后再检查付费状态
+  initEntitlement() {
+    pay.syncEntitlement().then(() => {
+      this.checkPayStatus()
+    })
+  },
+
+  // 检查付费状态（在服务端权益同步之后调用）
   checkPayStatus() {
     const { result, fromRecord } = this.data
-    const canFree = userUtil.canMeasureFree()
-    const isUnlimited = userUtil.isUnlimited()
 
-    if (canFree) {
-      // 已付费用户，直接显示结果
-      this.setData({
-        isPaid: true,
-        isUnlimited: isUnlimited
-      })
-
-      // 如果是单次用户，扣减次数
-      if (!isUnlimited) {
-        if (result && result.timestamp && !userUtil.isLastUnlockedResult(result.timestamp)) {
-          userUtil.useMeasureCount()
-          userUtil.setLastUnlockedResult(result.timestamp)
-          userUtil.addSingleResult(result)
-        }
-      }
-
-      // 如果是无限用户，保存记录
-      if (isUnlimited && !fromRecord) {
-        if (result && result.timestamp) {
-          userUtil.addUnlimitedSessionResult(result)
-        }
+    // 年度会员：免费查看并保存
+    if (userUtil.isUnlimited()) {
+      this.setData({ isPaid: true, isUnlimited: true })
+      if (!fromRecord && result && result.timestamp) {
+        userUtil.addUnlimitedSessionResult(result)
         this.saveRecord()
       }
       this.updateProgress()
       return
-    } else {
-      const canViewLatest = result && result.timestamp && userUtil.canViewLatestResult(result.timestamp)
-      if (canViewLatest) {
-        this.setData({
-          isPaid: true,
-          isUnlimited: false,
-          showPayModal: false
-        })
-        this.updateProgress()
-        return
-      }
-
-      // 未付费，显示付费弹窗
-      this.setData({
-        showPayModal: true,
-        isPaid: false
-      })
     }
+
+    // 从历史记录进入：直接展示
+    if (fromRecord) {
+      this.setData({ isPaid: true, isUnlimited: false })
+      this.updateProgress()
+      return
+    }
+
+    // 单次/未付费：由服务端判定这条结果能否查看（consume 幂等，不会重复扣费）
+    if (result && result.timestamp) {
+      pay.consume(result.timestamp).then((out) => {
+        if (out === null) {
+          // 网络异常：回退本地缓存判断
+          const localOk = userUtil.canMeasureFree()
+            || userUtil.canViewLatestResult(result.timestamp)
+          this.setData({ isPaid: localOk, isUnlimited: false, showPayModal: !localOk })
+          if (localOk) this.updateProgress()
+          return
+        }
+        if (out.ok && (out.consumed || out.reason === 'already_unlocked')) {
+          userUtil.setLastUnlockedResult(result.timestamp)
+          userUtil.addSingleResult(result)
+          this.setData({ isPaid: true, isUnlimited: false, showPayModal: false })
+          this.updateProgress()
+        } else {
+          // 没有次数 / 未购买 -> 付费弹窗
+          this.setData({ isPaid: false, showPayModal: true })
+        }
+      })
+      return
+    }
+
+    this.setData({ isPaid: false, showPayModal: true })
   },
 
   loadTrialSummary() {
@@ -308,71 +314,86 @@ Page({
     })
   },
 
-  // 确认支付
+  // 确认支付（真实微信支付）
   onPay() {
     const { selectedPlan, trialMode } = this.data
+    const plan = selectedPlan === 'single' ? 'single' : 'annual'
 
-    // TODO: 实际项目中这里需要调用微信支付接口
-    wx.showLoading({ title: '支付中...' })
-
-    setTimeout(() => {
-      wx.hideLoading()
-
-      if (selectedPlan === 'single') {
-        if (trialMode) {
-          userUtil.unlockTrialAsSingle()
-        } else {
-          userUtil.activateSingle()
-          if (this.data.result && this.data.result.timestamp) {
-            userUtil.addSingleResult(this.data.result)
-            userUtil.setLastUnlockedResult(this.data.result.timestamp)
-            userUtil.useMeasureCount()
-          }
-        }
-        this.setData({
-          showPayModal: false,
-          isPaid: true,
-          isUnlimited: false
-        })
-        if (trialMode) {
-          this.loadTrialSummary()
-        } else {
-          this.updateProgress()
-        }
-      } else {
-        const trialResults = trialMode ? userUtil.getTrialResults() : []
-        userUtil.activateUnlimited()
-        if (trialResults.length) {
-          trialResults.forEach((item) => {
-            userUtil.addUnlimitedSessionResult(item)
-            userUtil.addRecord({
-              totalPd: item.totalPd,
-              leftPd: item.leftPd,
-              rightPd: item.rightPd,
-              faceWidth: item.faceWidth,
-              confidence: item.confidence,
-              timestamp: item.timestamp
-            })
-          })
-          userUtil.resetTrialBatch()
-        } else if (this.data.result && this.data.result.timestamp) {
-          userUtil.addUnlimitedSessionResult(this.data.result)
-          this.saveRecord()
-        }
-        this.setData({
-          showPayModal: false,
-          isPaid: true,
-          isUnlimited: true
-        })
-        if (trialMode) {
-          this.loadTrialSummary()
-        } else {
-          this.updateProgress()
-        }
+    pay.purchase(plan).then((res) => {
+      if (!res || !res.ok) {
+        if (res && res.code === 'CANCELLED') return
+        wx.showToast({ title: (res && res.message) || '支付失败', icon: 'none' })
+        return
       }
+      // 支付成功，权益已由 pay.purchase 同步到本地
+      const isUnlimited = userUtil.isUnlimited()
+      this.setData({ showPayModal: false, isPaid: true, isUnlimited })
 
+      if (isUnlimited) {
+        this.absorbResultsAsUnlimited(trialMode)
+      } else {
+        this.absorbResultsAsSingle(trialMode)
+      }
       wx.showToast({ title: '支付成功', icon: 'success' })
-    }, 1000)
+    })
+  },
+
+  // 年度会员：把试测/当前结果并入会话与历史
+  absorbResultsAsUnlimited(trialMode) {
+    const trialResults = trialMode ? userUtil.getTrialResults() : []
+    if (trialResults.length) {
+      trialResults.forEach((item) => {
+        userUtil.addUnlimitedSessionResult(item)
+        userUtil.addRecord({
+          totalPd: item.totalPd,
+          leftPd: item.leftPd,
+          rightPd: item.rightPd,
+          faceWidth: item.faceWidth,
+          confidence: item.confidence,
+          timestamp: item.timestamp
+        })
+      })
+      userUtil.resetTrialBatch()
+    } else if (this.data.result && this.data.result.timestamp) {
+      userUtil.addUnlimitedSessionResult(this.data.result)
+      this.saveRecord()
+    }
+    if (trialMode) {
+      this.loadTrialSummary()
+    } else {
+      this.updateProgress()
+    }
+  },
+
+  // 单次套餐：把试测/当前结果并入三次包，并按结果时间戳逐条向服务端解锁（扣次，幂等）
+  absorbResultsAsSingle(trialMode) {
+    const results = trialMode
+      ? userUtil.getTrialResults()
+      : (this.data.result ? [this.data.result] : [])
+
+    const consumeNext = (list, i) => {
+      if (i >= list.length) {
+        if (trialMode) {
+          userUtil.resetTrialBatch()
+          this.loadTrialSummary()
+        } else {
+          this.updateProgress()
+        }
+        this.setData({ isUnlimited: userUtil.isUnlimited() })
+        return
+      }
+      const item = list[i]
+      if (!item || !item.timestamp) {
+        consumeNext(list, i + 1)
+        return
+      }
+      userUtil.addSingleResult(item)
+      pay.consume(item.timestamp).then(() => {
+        userUtil.setLastUnlockedResult(item.timestamp)
+        consumeNext(list, i + 1)
+      })
+    }
+    consumeNext(results, 0)
   },
 
   // 关闭付费弹窗
@@ -391,24 +412,28 @@ Page({
     })
   },
 
-  // 升级到无限
+  // 升级到年度会员（补差价 ¥10）
   onUpgrade() {
     wx.showModal({
       title: '升级确认',
-      content: '补 ¥10 即可解锁无限次测量和数据保存功能',
+      content: '补 ¥10 即可解锁年度会员（一年内不限次测量 + 数据保存）',
       confirmText: '立即升级',
       success: (res) => {
-        if (res.confirm) {
-          // TODO: 调用支付接口
-          userUtil.upgradeToUnlimited()
+        if (!res.confirm) return
+        pay.purchase('upgrade').then((payRes) => {
+          if (!payRes || !payRes.ok) {
+            if (payRes && payRes.code === 'CANCELLED') return
+            wx.showToast({ title: (payRes && payRes.message) || '升级失败', icon: 'none' })
+            return
+          }
           if (this.data.result && this.data.result.timestamp) {
             userUtil.addUnlimitedSessionResult(this.data.result)
           }
           this.saveRecord()
-          this.setData({ isUnlimited: true })
+          this.setData({ isUnlimited: userUtil.isUnlimited() })
           this.updateProgress()
           wx.showToast({ title: '升级成功', icon: 'success' })
-        }
+        })
       }
     })
   },
@@ -493,7 +518,11 @@ Page({
   },
 
   onCopy() {
-    const { result, displayResult, displayResultSource, frameRecommendation, lensAdvice, medianResult } = this.data
+    const { result, displayResult, displayResultSource, frameRecommendation, lensAdvice, medianResult, isPaid } = this.data
+    if (!isPaid) {
+      wx.showToast({ title: '请先解锁结果', icon: 'none' })
+      return
+    }
     const primary = displayResult || result
     if (!primary) {
       return
