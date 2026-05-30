@@ -1,180 +1,52 @@
-<view class="page {{stage === 'capture' ? 'capture-mode' : ''}}">
-  <!-- 拍照阶段 - 全屏相机 -->
-  <block wx:if="{{stage === 'capture'}}">
-    <view class="camera-fullscreen">
-      <camera class="camera" device-position="{{cameraPosition}}" flash="off"></camera>
+<view class="page capture-mode">
+  <!-- 全屏相机 -->
+  <view class="camera-fullscreen">
+    <camera class="camera" device-position="{{cameraPosition}}" flash="off"></camera>
 
-      <!-- 顶部提示 -->
-      <view class="camera-tip">正脸居中 · 双眼水平 · 卡片横放</view>
+    <!-- 顶部提示 -->
+    <view class="camera-tip">正脸看镜头 · 双眼睁大 · 光线充足</view>
+    <view class="glasses-warn">⚠️ 请摘掉眼镜，否则瞳距会测不准</view>
 
-      <!-- 人脸对准区域 -->
-      <view class="face-guide">
-        <view class="face-outline">
-          <view class="card-hint">卡片位置</view>
-        </view>
-        <!-- 鼻子中线引导 -->
-        <view class="center-line"></view>
-        <view class="center-line-hint">对准鼻梁中线</view>
+    <!-- 三连拍进度 -->
+    <view class="shot-progress">
+      <text class="shot-progress-text">第 {{shotIndex + 1}}/{{totalShots}} 次</text>
+      <view class="shot-dots">
+        <view class="shot-dot {{shotIndex > 0 ? 'done' : ''}}"></view>
+        <view class="shot-dot {{shotIndex > 1 ? 'done' : ''}}"></view>
+        <view class="shot-dot {{shotIndex > 2 ? 'done' : ''}}"></view>
       </view>
+      <text class="shot-progress-hint" wx:if="{{shotIndex > 0}}">保持正脸，再拍一张取中位数更准</text>
+    </view>
 
-      <!-- 顶部返回按钮 -->
-      <view class="top-bar">
-        <view class="btn-icon" bindtap="goBack">
-          <text class="icon-arrow">‹</text>
-        </view>
-      </view>
-
-      <!-- 底部操作区 -->
-      <view class="capture-overlay">
-        <view class="capture-hint">卡片横放在眉毛上方，尽量贴近额头但不要遮住眼睛；不要放下巴或远离脸。保持卡片、手机、人脸互相平行，手机距脸约 30-40cm。</view>
-        <view class="capture-bottom">
-          <view class="btn-icon" bindtap="switchCamera">
-            <text class="icon-switch">⟳</text>
-          </view>
-          <view class="btn-capture" bindtap="takePhoto">
-            <view class="btn-capture-inner"></view>
-          </view>
-          <view class="btn-icon-placeholder"></view>
-        </view>
+    <!-- 人脸对准区域 + 眼位引导 -->
+    <view class="face-guide">
+      <view class="face-outline">
+        <view class="eye-line"></view>
+        <view class="eye-mark left"></view>
+        <view class="eye-mark right"></view>
+        <text class="eye-tip">双眼对齐这条线、对准两个圈</text>
       </view>
     </view>
-  </block>
-
-  <!-- 主区域：照片（调整阶段，全屏） -->
-  <view class="main-area-fullscreen" wx:if="{{stage === 'adjust'}}">
-    <!-- 全屏照片 -->
-    <image class="photo-fullscreen" src="{{photoPath}}" mode="aspectFit" style="background:#000;" />
-
-    <!-- 调试：显示Face++识别的人脸框 -->
-    <view wx:if="{{debugFaceRect}}" class="debug-face-rect" style="left:{{debugFaceRect.left}}px;top:{{debugFaceRect.top}}px;width:{{debugFaceRect.width}}px;height:{{debugFaceRect.height}}px;"></view>
-
-    <!-- 调试：屏幕中心十字线 -->
-    <view class="debug-center-cross-h" style="top:{{displayHeight/2}}px;"></view>
-    <view class="debug-center-cross-v" style="left:{{displayWidth/2}}px;"></view>
-
-    <!-- 可拖拽标记层 -->
-    <movable-area class="overlay-fullscreen">
-      <!-- Step 0: 眼球标记点 -->
-      <movable-view
-        wx:if="{{step === 0}}"
-        class="point left-eye"
-        x="{{leftEye.x}}"
-        y="{{leftEye.y}}"
-        direction="all"
-        friction="{{dragFriction}}"
-        damping="{{dragDamping}}"
-        bindchange="onLeftEyeMove"
-      >
-        <view class="point-dot"></view>
-        <view class="drag-hint">
-          <view class="drag-icon"></view>
-          <text class="drag-text">按住拖动</text>
-        </view>
-      </movable-view>
-      <movable-view
-        wx:if="{{step === 0}}"
-        class="point right-eye"
-        x="{{rightEye.x}}"
-        y="{{rightEye.y}}"
-        direction="all"
-        friction="{{dragFriction}}"
-        damping="{{dragDamping}}"
-        bindchange="onRightEyeMove"
-      >
-        <view class="point-dot"></view>
-        <view class="drag-hint">
-          <view class="drag-icon"></view>
-          <text class="drag-text">按住拖动</text>
-        </view>
-      </movable-view>
-
-      <!-- Step 1: 鼻梁中线 -->
-      <movable-view
-        wx:if="{{step === 1}}"
-        class="line-wrap center"
-        x="{{centerX}}"
-        y="0"
-        direction="horizontal"
-        friction="{{dragFriction}}"
-        damping="{{dragDamping}}"
-        bindchange="onCenterMove"
-      >
-        <view class="line"></view>
-        <view class="line-tag">鼻梁</view>
-      </movable-view>
-
-      <!-- Step 2: 银行卡边界线 -->
-      <movable-view
-        wx:if="{{step === 2}}"
-        class="line-wrap card"
-        x="{{cardLeftX}}"
-        y="0"
-        direction="horizontal"
-        friction="{{dragFriction}}"
-        damping="{{dragDamping}}"
-        bindchange="onCardLeftMove"
-      >
-        <view class="line"></view>
-        <view class="line-tag">卡左</view>
-      </movable-view>
-      <movable-view
-        wx:if="{{step === 2}}"
-        class="line-wrap card"
-        x="{{cardRightX}}"
-        y="0"
-        direction="horizontal"
-        friction="{{dragFriction}}"
-        damping="{{dragDamping}}"
-        bindchange="onCardRightMove"
-      >
-        <view class="line"></view>
-        <view class="line-tag">卡右</view>
-      </movable-view>
-    </movable-area>
 
     <!-- 顶部返回按钮 -->
-    <view class="adjust-top-bar">
-      <view class="btn-icon" bindtap="retake">
+    <view class="top-bar">
+      <view class="btn-icon" bindtap="goBack">
         <text class="icon-arrow">‹</text>
       </view>
     </view>
 
-    <!-- 底部悬浮提示面板 -->
-    <view class="floating-panel">
-      <view class="floating-header">
-        <view class="step-info">
-          <text class="step-title">{{stepLabels[step]}}</text>
-          <text class="step-num-text">{{step + 1}}/{{totalSteps}}</text>
+    <!-- 底部操作区 -->
+    <view class="capture-overlay">
+      <view class="capture-hint">把脸对准框内、正脸看镜头，手机举到与眼睛同高、约一臂距离（30–40cm）。摘掉眼镜、光线充足、自然睁眼即可，无需手持任何卡片。</view>
+      <view class="capture-bottom">
+        <view class="btn-icon" bindtap="switchCamera">
+          <text class="icon-switch">⟳</text>
         </view>
-        <view class="step-dots">
-          <view class="dot {{step === 0 ? 'active' : (step > 0 ? 'done' : '')}}"></view>
-          <view class="dot {{step === 1 ? 'active' : (step > 1 ? 'done' : '')}}"></view>
-          <view class="dot {{step === 2 ? 'active' : ''}}"></view>
+        <view class="btn-capture" bindtap="takePhoto">
+          <view class="btn-capture-inner"></view>
         </view>
-      </view>
-      <text class="floating-tip">{{stepTips[step]}}</text>
-      <view class="card-config" wx:if="{{step === 2}}">
-        <text class="card-config-title">卡片类型</text>
-        <radio-group class="card-options" bindchange="onCardTypeChange">
-          <label wx:for="{{cardOptions}}" wx:key="value" class="card-option {{selectedCard === item.value ? 'selected' : ''}}">
-            <radio value="{{item.value}}" checked="{{selectedCard === item.value}}" hidden />
-            <text>{{item.label}}</text>
-          </label>
-        </radio-group>
-        <text class="card-config-tip">当前宽度：{{cardWidthMm}}mm</text>
-      </view>
-      <view class="floating-actions">
-        <view class="btn-float-secondary" wx:if="{{step > 0}}" bindtap="prevStep">上一步</view>
-        <view class="btn-float-primary" bindtap="nextStep">{{step < totalSteps - 1 ? '下一步' : '完成'}}</view>
+        <view class="btn-icon-placeholder"></view>
       </view>
     </view>
   </view>
-
-  <canvas
-    canvas-id="pupilCanvas"
-    class="pupil-canvas"
-    style="width: {{pupilCanvasWidth}}px; height: {{pupilCanvasHeight}}px;"
-    width="{{pupilCanvasWidth}}"
-    height="{{pupilCanvasHeight}}"
-  ></canvas>
 </view>

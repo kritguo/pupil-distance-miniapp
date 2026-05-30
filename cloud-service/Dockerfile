@@ -1,17 +1,15 @@
 # 瞳距测量服务 Dockerfile
-FROM python:3.11-slim
+# 固定 bookworm：python:3.11-slim 现已指向 trixie，其上 libgl1-mesa-glx 被移除会导致构建失败
+FROM python:3.11-slim-bookworm
 
 # 设置时区
 ENV TZ=Asia/Shanghai
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
-# 安装系统依赖（OpenCV 和 MediaPipe 需要）
+# 系统依赖：使用 opencv-python-headless，无需 X11 库；libgl1/libglib 供 cv2/mediapipe，libgomp1 供 OpenMP
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libgl1-mesa-glx \
+    libgl1 \
     libglib2.0-0 \
-    libsm6 \
-    libxext6 \
-    libxrender-dev \
     libgomp1 \
     curl \
     && rm -rf /var/lib/apt/lists/*
@@ -21,8 +19,10 @@ WORKDIR /app
 # 先复制依赖文件，利用 Docker 缓存
 COPY requirements.txt .
 
-# 安装 Python 依赖
-RUN pip install --no-cache-dir -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+# 安装 Python 依赖（用腾讯云镜像，避免清华镜像对构建机 403）
+RUN pip install --no-cache-dir -r requirements.txt \
+    -i https://mirrors.cloud.tencent.com/pypi/simple \
+    --trusted-host mirrors.cloud.tencent.com
 
 # 复制应用代码
 COPY main.py .

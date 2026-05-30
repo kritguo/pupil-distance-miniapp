@@ -1,4 +1,5 @@
 const config = require('./config.js')
+const pay = require('./utils/pay.js')
 
 // app.js
 App({
@@ -10,12 +11,9 @@ App({
         initOptions.env = cloudEnv
       }
       wx.cloud.init(initOptions)
+      // 启动即同步一次服务端权益到本地缓存（openid 由云函数自动获取）
+      pay.syncEntitlement()
     }
-    wx.login({
-      success: res => {
-        // 发送 res.code 到后台换取 openId, sessionKey, unionId
-      }
-    })
   },
   globalData: {
     userInfo: null
