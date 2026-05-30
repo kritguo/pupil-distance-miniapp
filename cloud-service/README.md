@@ -143,3 +143,17 @@ docker-compose up -d --build
 1. **MediaPipe 安装失败**: 确保系统有 libgl1-mesa-glx 等依赖
 2. **内存不足**: 增加服务器内存或调整 Docker 内存限制
 3. **卡片检测不准**: 调整 Canny 阈值参数
+
+## 精度验证(离线)
+
+把带真实验光 PD 的照片放进 `validation/dataset/`,运行:
+
+```bash
+cd cloud-service
+pip install pytest            # 首次
+python -m validation.run_validation
+```
+
+报告输出在 `validation/reports/validation-report.md`,含:总体误差、
+建议的 `PD_CALIBRATION` 值、个体虹膜差异、残差相关性、卡片对照。
+数据集格式见 `validation/dataset/README.md`。照片含人脸,已 gitignore。
