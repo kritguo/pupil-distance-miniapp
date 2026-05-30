@@ -52,6 +52,8 @@ def build_output(iris, pd, card_total, validation, quality, img_shape) -> Measur
 
 def measure_image(path: str) -> MeasureOutput:
     """读图 → 调 main.py 算法 → MeasureOutput。基线 calibration 固定 1.0。"""
+    if not os.path.exists(path):
+        return MeasureOutput(ok=False, reason="image_read_failed")
     os.environ["PD_CALIBRATION"] = "1.0"  # 必须在 import main 之前
     import cv2
     import main  # cloud-service/main.py,运行目录在 cloud-service 时可直接 import
