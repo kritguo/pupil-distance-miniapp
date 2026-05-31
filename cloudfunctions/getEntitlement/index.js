@@ -7,6 +7,7 @@ const deriveEntitlement = (user, now) => {
   const remainCount = (user && user.remainCount) || 0
   const annualExpireAt = (user && user.annualExpireAt) || 0
   const totalSinglePurchased = (user && user.totalSinglePurchased) || 0
+  const retestCredits = (user && user.retestCredits) || 0
   const annualActive = annualExpireAt > now
 
   let status = 'none'
@@ -23,7 +24,8 @@ const deriveEntitlement = (user, now) => {
     remainCount,
     annualExpireAt,
     annualActive,
-    isUnlimited: annualActive
+    isUnlimited: annualActive,
+    retestCredits
   }
 }
 

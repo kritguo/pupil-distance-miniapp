@@ -45,6 +45,7 @@ function applyServerEntitlement(ent) {
   const info = getUserInfo()
   if (typeof ent.status === 'string') info.status = ent.status
   if (isNumber(ent.remainCount)) info.remainCount = ent.remainCount
+  if (isNumber(ent.retestCredits)) info.retestCredits = ent.retestCredits
   if (isNumber(ent.annualExpireAt)) info.annualExpireAt = ent.annualExpireAt
   info.serverSyncedAt = Date.now()
   if (!info.createTime && info.status !== 'none') info.createTime = Date.now()
@@ -118,11 +119,11 @@ function shouldShowPayTip() {
   return true
 }
 
-// 激活单次
+// 激活单次（¥9.9 = 一次测量；可信度中/低时另发免费补测，见 grantFreeRetest）
 function activateSingle() {
   const info = getUserInfo()
   info.status = 'single'
-  info.remainCount = 3
+  info.remainCount = 1
   info.singleBatch = { id: Date.now().toString(), results: [] }
   if (!info.createTime) info.createTime = Date.now()
   saveUserInfo(info)
@@ -153,21 +154,33 @@ function useMeasureCount() {
   }
 }
 
-// 添加测量记录（仅无限用户）
+// 添加测量记录（已付费用户：年度会员 / 单次 均保存到个人中心）
 function addRecord(record) {
   const info = getUserInfo()
-  if (info.status === 'unlimited') {
-    const recordTime = record.timestamp || Date.now()
-    if (info.records.some(item => item.time === recordTime)) {
-      return
-    }
-    record.time = recordTime
-    record.id = recordTime.toString()
-    info.records.unshift(record) // 新记录在前
-    // 最多保存50条
-    if (info.records.length > 50) {
-      info.records = info.records.slice(0, 50)
-    }
+  const paid = isAnnualActive(info) || info.status === 'single' || info.status === 'single_used'
+  if (!paid) return
+  const recordTime = record.timestamp || Date.now()
+  if (info.records.some(item => item.time === recordTime)) {
+    return
+  }
+  record.time = recordTime
+  record.id = recordTime.toString()
+  info.records.unshift(record) // 新记录在前
+  // 最多保存50条
+  if (info.records.length > 50) {
+    info.records = info.records.slice(0, 50)
+  }
+  saveUserInfo(info)
+}
+
+// 给某条记录设置/更新「测量对象」名字（按时间戳定位）
+function updateRecordName(timestamp, name) {
+  if (!timestamp) return
+  const info = getUserInfo()
+  if (!Array.isArray(info.records)) return
+  const rec = info.records.find(item => item.time === timestamp)
+  if (rec) {
+    rec.name = name
     saveUserInfo(info)
   }
 }
@@ -176,6 +189,16 @@ function addRecord(record) {
 function getRecords() {
   const info = getUserInfo()
   return info.records || []
+}
+
+// 删除一条测量记录（按 id 或 time 定位）
+function deleteRecord(id) {
+  if (!id && id !== 0) return
+  const info = getUserInfo()
+  if (!Array.isArray(info.records)) return
+  const key = String(id)
+  info.records = info.records.filter((r) => String(r.id) !== key && String(r.time) !== key)
+  saveUserInfo(info)
 }
 
 // 单次升级到年度会员（补差价）——本地乐观更新
@@ -337,7 +360,9 @@ module.exports = {
   activateUnlimited,
   useMeasureCount,
   addRecord,
+  updateRecordName,
   getRecords,
+  deleteRecord,
   upgradeToUnlimited,
   setLastUnlockedResult,
   isLastUnlockedResult,

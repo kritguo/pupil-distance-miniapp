@@ -7,7 +7,7 @@ const userUtil = require('./user.js')
 
 // 可购买套餐（仅用于前端展示文案，金额/道具以服务端 vpaySign 为准）
 const PLAN_LABELS = {
-  single: '单次套餐（3 次测量）',
+  single: '单次测量（拍 3 张取中位数）',
   annual: '年度会员（一年不限次）'
 }
 
@@ -61,6 +61,26 @@ function consume(resultKey) {
       },
       fail: (err) => {
         console.warn('[pay] consumeMeasure 失败:', err)
+        resolve(null)
+      }
+    })
+  })
+}
+
+// 为某条「已解锁且可信度中/低」的结果申请免费补测额度（服务端幂等、只对已解锁结果发）
+// 返回 { ok, granted, retestCredits } 或 null
+function grantRetest(resultKey) {
+  return new Promise((resolve) => {
+    if (!ensureCloud() || !resultKey) {
+      resolve(null)
+      return
+    }
+    wx.cloud.callFunction({
+      name: 'grantRetest',
+      data: { resultKey: String(resultKey) },
+      success: (res) => resolve((res && res.result) || null),
+      fail: (err) => {
+        console.warn('[pay] grantRetest 失败:', err)
         resolve(null)
       }
     })
@@ -167,5 +187,6 @@ module.exports = {
   PLAN_LABELS,
   syncEntitlement,
   consume,
+  grantRetest,
   purchase
 }

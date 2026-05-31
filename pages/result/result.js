@@ -7,6 +7,19 @@ const MEASURE_TARGET_COUNT = 3
 const STABLE_TOTAL_SPREAD_MM = 2
 const USABLE_TOTAL_SPREAD_MM = 4
 
+const resultRecordFields = (item) => ({
+  totalPd: item.totalPd,
+  leftPd: item.leftPd,
+  rightPd: item.rightPd,
+  nearTotalPd: item.nearTotalPd,
+  nearLeftPd: item.nearLeftPd,
+  nearRightPd: item.nearRightPd,
+  pdBasis: item.pdBasis,
+  faceWidth: item.faceWidth,
+  confidence: item.confidence,
+  timestamp: item.timestamp
+})
+
 const median = (values) => {
   const list = values.filter(isNumber).slice().sort((a, b) => a - b)
   if (!list.length) return null
@@ -21,6 +34,31 @@ const numericResults = (results) => (results || []).filter((item) => item
   && isNumber(item.totalPd)
   && isNumber(item.leftPd)
   && isNumber(item.rightPd))
+
+// 三张总瞳距 → 波动点阵图数据。把每张的总 PD 映射到 10%~90% 轨道位置，标出中位数那张。
+const buildSpreadDots = (results, medianTotal) => {
+  const vals = numericResults(results).map((r) => r.totalPd)
+  if (vals.length < 2) return { dots: [], maxDiff: 0 }
+  const min = Math.min(...vals)
+  const max = Math.max(...vals)
+  const range = max - min
+  // 离中位数最近的那张标为高亮（只标一张）
+  let hiIdx = -1
+  if (isNumber(medianTotal)) {
+    let best = Infinity
+    vals.forEach((v, i) => {
+      const d = Math.abs(v - medianTotal)
+      if (d < best) { best = d; hiIdx = i }
+    })
+  }
+  const dots = vals.map((v, i) => ({
+    id: i,
+    pd: v,
+    left: range === 0 ? 50 : Math.round(10 + ((v - min) / range) * 80),
+    hi: i === hiIdx
+  }))
+  return { dots, maxDiff: roundToHalf(range) }
+}
 
 const spread = (values) => {
   const list = values.filter(isNumber)
@@ -39,6 +77,9 @@ const buildMedianResult = (results) => {
     ? roundToHalf(left + right)
     : median(used.map(r => r.totalPd))
   const faceWidth = median(used.map(r => r.faceWidth))
+  const nearTotalPd = median(used.map(r => r.nearTotalPd))
+  const nearLeftPd = median(used.map(r => r.nearLeftPd))
+  const nearRightPd = median(used.map(r => r.nearRightPd))
   const totalSpread = spread(used.map(r => r.totalPd))
   const leftSpread = spread(used.map(r => r.leftPd))
   const rightSpread = spread(used.map(r => r.rightPd))
@@ -52,6 +93,10 @@ const buildMedianResult = (results) => {
     totalPd: total,
     leftPd: left,
     rightPd: right,
+    nearTotalPd,
+    nearLeftPd,
+    nearRightPd,
+    pdBasis: used.some(r => r.pdBasis === 'far') ? 'far' : (used[0] && used[0].pdBasis),
     faceWidth,
     confidence: consistency === '稳定' ? '高' : (consistency === '一般' ? '中' : '低'),
     usedCount: used.length,
@@ -110,6 +155,8 @@ Page({
     result: null,
     displayResult: null,
     displayResultSource: '本次测量',
+    measureName: '',   // 测量对象（给谁测的，可编辑、随记录保存）
+    freeRetestReady: false, // 本次结果中/低，已发放免费补测额度（下次测量不扣费）
     empty: false,
     // 付费相关
     showPayModal: false,
@@ -122,6 +169,8 @@ Page({
     medianResult: null,
     medianWarning: '',
     medianCount: 0,
+    spreadDots: [],
+    spreadMaxDiff: 0,
     nextMeasureText: '再测一次',
     trialResults: [],
     // 镜框推荐（基于脸宽自动计算）
@@ -152,6 +201,7 @@ Page({
       result,
       displayResult: result,
       displayResultSource: '本次测量',
+      measureName: result.name || '',
       fromRecord,
       trialMode
     })
@@ -183,9 +233,11 @@ Page({
       this.setData({ isPaid: true, isUnlimited: true })
       if (!fromRecord && result && result.timestamp) {
         userUtil.addUnlimitedSessionResult(result)
-        this.saveRecord()
       }
       this.updateProgress()
+      if (!fromRecord && result && result.timestamp) {
+        this.saveRecord()   // 在中位数算好后再存
+      }
       return
     }
 
@@ -204,7 +256,7 @@ Page({
           const localOk = userUtil.canMeasureFree()
             || userUtil.canViewLatestResult(result.timestamp)
           this.setData({ isPaid: localOk, isUnlimited: false, showPayModal: !localOk })
-          if (localOk) this.updateProgress()
+          if (localOk) { this.updateProgress(); this.saveRecord(); this.maybeGrantRetest() }
           return
         }
         if (out.ok && (out.consumed || out.reason === 'already_unlocked')) {
@@ -212,6 +264,8 @@ Page({
           userUtil.addSingleResult(result)
           this.setData({ isPaid: true, isUnlimited: false, showPayModal: false })
           this.updateProgress()
+          this.saveRecord()   // 单次结果也存进个人中心
+          this.maybeGrantRetest()   // 中/低则发免费补测额度
         } else {
           // 没有次数 / 未购买 -> 付费弹窗
           this.setData({ isPaid: false, showPayModal: true })
@@ -229,11 +283,14 @@ Page({
     const results = trialResults.length ? trialResults : paidResults
     const medianResult = buildMedianResult(results)
     const displayResult = medianResult || this.data.result
+    const spread = buildSpreadDots(results, medianResult && medianResult.totalPd)
     this.setData({
       trialResults: results,
       medianResult,
       medianWarning: medianResult ? medianResult.warning : '',
       medianCount: results.length,
+      spreadDots: spread.dots,
+      spreadMaxDiff: spread.maxDiff,
       displayResult,
       displayResultSource: medianResult ? '三次中位数推荐' : '本次测量',
       progressText: results.length >= MEASURE_TARGET_COUNT
@@ -252,6 +309,7 @@ Page({
       const count = sessionResults.length
       const medianResult = buildMedianResult(sessionResults)
       const displayResult = medianResult || result
+      const spread = buildSpreadDots(sessionResults, medianResult && medianResult.totalPd)
       const progressText = count >= 3
         ? `已完成 ${count} 次测量，优先使用中位数结果`
         : `已完成 ${count} 次测量，建议至少 3 次取中位数`
@@ -260,6 +318,8 @@ Page({
         medianResult,
         medianWarning: medianResult ? medianResult.warning : '',
         medianCount: count,
+        spreadDots: spread.dots,
+        spreadMaxDiff: spread.maxDiff,
         displayResult,
         displayResultSource: medianResult ? `${count} 次中位数推荐` : '本次测量',
         nextMeasureText: medianResult && medianResult.consistency !== '稳定' ? '再测一次确认' : '继续测量'
@@ -276,6 +336,7 @@ Page({
       : `已完成 ${count}/${total} 次测量，优先使用中位数结果`
     const medianResult = count >= total ? buildMedianResult(batchResults) : null
     const displayResult = medianResult || result
+    const spread = buildSpreadDots(batchResults, medianResult && medianResult.totalPd)
     const nextMeasureText = count < total
       ? `继续第 ${count + 1} 次测量`
       : (medianResult && medianResult.consistency !== '稳定' ? '再测一次确认' : '再测一次')
@@ -285,6 +346,8 @@ Page({
       medianResult,
       medianWarning: medianResult ? medianResult.warning : '',
       medianCount: count,
+      spreadDots: spread.dots,
+      spreadMaxDiff: spread.maxDiff,
       displayResult,
       displayResultSource: medianResult ? '三次中位数推荐' : '本次测量',
       nextMeasureText
@@ -292,19 +355,15 @@ Page({
     this.calcFrameRecommendation(displayResult && displayResult.faceWidth)
   },
 
-  // 保存测量记录
+  // 保存测量记录（存推荐的中位数结果 + 测量对象名字；按会话时间戳去重）
   saveRecord() {
-    const { result } = this.data
-    if (result) {
-      userUtil.addRecord({
-        totalPd: result.totalPd,
-        leftPd: result.leftPd,
-        rightPd: result.rightPd,
-        faceWidth: result.faceWidth,
-        confidence: result.confidence,
-        timestamp: result.timestamp
-      })
-    }
+    const { result, displayResult, measureName } = this.data
+    if (!result || !result.timestamp) return
+    const base = displayResult || result
+    const record = resultRecordFields(base)
+    record.timestamp = result.timestamp
+    record.name = measureName || ''
+    userUtil.addRecord(record)
   },
 
   // 选择付费方案
@@ -348,14 +407,7 @@ Page({
     if (trialResults.length) {
       trialResults.forEach((item) => {
         userUtil.addUnlimitedSessionResult(item)
-        userUtil.addRecord({
-          totalPd: item.totalPd,
-          leftPd: item.leftPd,
-          rightPd: item.rightPd,
-          faceWidth: item.faceWidth,
-          confidence: item.confidence,
-          timestamp: item.timestamp
-        })
+        userUtil.addRecord(resultRecordFields(item))
       })
       userUtil.resetTrialBatch()
     } else if (this.data.result && this.data.result.timestamp) {
@@ -383,6 +435,8 @@ Page({
         } else {
           this.updateProgress()
         }
+        this.saveRecord()   // 付费解锁后存进个人中心
+        this.maybeGrantRetest()   // 中/低则发免费补测额度
         this.setData({ isUnlimited: userUtil.isUnlimited() })
         return
       }
@@ -520,6 +574,14 @@ Page({
       lines.push(`脸宽：${primary.faceWidth} mm`)
     }
 
+    if (primary.nearTotalPd) {
+      lines.push('')
+      lines.push('【近用参考】')
+      lines.push(`近用总 PD：${primary.nearTotalPd} mm`)
+      lines.push(`近用左眼 PD：${primary.nearLeftPd} mm`)
+      lines.push(`近用右眼 PD：${primary.nearRightPd} mm`)
+    }
+
     if (medianResult) {
       lines.push('')
       lines.push('【中位数推荐】')
@@ -559,6 +621,49 @@ Page({
         })
       }
     })
+  },
+
+  // 本次结果可信度中/低 → 申请免费补测额度（下次测量不扣费，直到测出「高」为止）
+  // 年度会员本就不限次、从历史进入不发；只对单次付费用户的中/低结果发放
+  maybeGrantRetest() {
+    const { isUnlimited, fromRecord, result, displayResult } = this.data
+    if (isUnlimited || fromRecord || !result || !result.timestamp) return
+    const conf = displayResult && displayResult.confidence
+    if (conf !== '中' && conf !== '低') return
+    pay.grantRetest(result.timestamp).then((out) => {
+      if (out && (out.granted || out.reason === 'already_granted')) {
+        this.setData({ freeRetestReady: true })
+      }
+    })
+  },
+
+  // 编辑「测量对象」名字（同步到本次结果缓存 + 已保存记录）
+  onEditName() {
+    const that = this
+    wx.showModal({
+      title: '标注测量对象',
+      editable: true,
+      placeholderText: '给谁测的？如：本人 / 妈妈 / 孩子',
+      content: this.data.measureName || '',
+      success: (res) => {
+        if (!res.confirm) return
+        const name = (res.content || '').trim().slice(0, 12)
+        that.setData({ measureName: name })
+        const latest = wx.getStorageSync('latestResult')
+        if (latest) {
+          latest.name = name
+          wx.setStorageSync('latestResult', latest)
+        }
+        if (that.data.result && that.data.result.timestamp) {
+          userUtil.updateRecordName(that.data.result.timestamp, name)
+        }
+      }
+    })
+  },
+
+  // 点「已保存于个人中心」横幅 → 跳个人中心查看
+  onViewSaved() {
+    wx.switchTab({ url: '/pages/mine/mine' })
   },
 
   onRetake() {

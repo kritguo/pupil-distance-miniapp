@@ -6,16 +6,18 @@ const deriveEntitlement = (user, now) => {
   const remainCount = (user && user.remainCount) || 0
   const annualExpireAt = (user && user.annualExpireAt) || 0
   const totalSinglePurchased = (user && user.totalSinglePurchased) || 0
+  const retestCredits = (user && user.retestCredits) || 0
   const annualActive = annualExpireAt > now
   let status = 'none'
   if (annualActive) status = 'unlimited'
   else if (remainCount > 0) status = 'single'
   else if (totalSinglePurchased > 0) status = 'single_used'
-  return { status, remainCount, annualExpireAt, annualActive, isUnlimited: annualActive }
+  return { status, remainCount, annualExpireAt, annualActive, isUnlimited: annualActive, retestCredits }
 }
 
-// 单次套餐用户查看一条新结果时扣 1 次。
-// 幂等：同一个 resultKey(结果时间戳) 只扣一次，避免重复查看重复扣费、也避免本地清缓存白嫖。
+// 单次套餐用户查看一条新结果时解锁。
+// 解锁顺序：免费补测额度 > 单次剩余次数。
+// 幂等：同一个 resultKey(结果时间戳) 只解锁一次，避免重复查看重复扣费、也避免本地清缓存白嫖。
 exports.main = async (event) => {
   const wxContext = cloud.getWXContext()
   const openid = wxContext.OPENID
@@ -42,10 +44,31 @@ exports.main = async (event) => {
         outcome = { ok: true, consumed: false, reason: 'annual', ...ent }
         return
       }
-      // 已经为这条结果扣过 → 直接放行，不重复扣
+      // 已经为这条结果解锁过 → 直接放行，不重复扣
       const consumed = (user && user.consumedResults) || []
       if (consumed.indexOf(resultKey) !== -1) {
         outcome = { ok: true, consumed: false, reason: 'already_unlocked', ...ent }
+        return
+      }
+      // 优先使用免费补测额度（可信度中/低时发放，见 grantRetest）
+      const creditFunded = (user && user.creditFundedResults) || []
+      if (ent.retestCredits > 0) {
+        const nextConsumed = consumed.concat([resultKey]).slice(-50)
+        const nextCreditFunded = creditFunded.concat([resultKey]).slice(-50)
+        const nextCredits = ent.retestCredits - 1
+        await transaction.collection('users').doc(openid).update({
+          data: {
+            retestCredits: nextCredits,
+            consumedResults: nextConsumed,
+            creditFundedResults: nextCreditFunded,
+            updateTime: db.serverDate()
+          }
+        })
+        const after = deriveEntitlement(
+          { ...user, consumedResults: nextConsumed, retestCredits: nextCredits },
+          now
+        )
+        outcome = { ok: true, consumed: true, reason: 'retest_credit', ...after }
         return
       }
       // 还有剩余次数 → 扣 1

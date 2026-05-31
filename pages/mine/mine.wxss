@@ -1,172 +1,229 @@
 page {
-  background: #f5f5f5;
+  background: #f6f7f9;
 }
 
 .page {
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
+  box-sizing: border-box;
+  position: relative;
+  overflow: hidden;
+  color: var(--ink);
 }
 
-.header {
+.bg-glow {
+  position: absolute;
+  top: -140rpx;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 900rpx;
+  height: 520rpx;
+  background: radial-gradient(circle at 50% 30%, #ffe0cb 0%, #fff4ec 46%, rgba(246, 247, 249, 0) 92%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.content {
+  position: relative;
+  z-index: 1;
+  padding: 32rpx;
+}
+
+/* 头部 */
+.profile-head {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  padding: 60rpx 0 40rpx;
-  background: #fff;
+  gap: 28rpx;
+  padding: 16rpx 8rpx 40rpx;
 }
-
 .avatar {
-  width: 120rpx;
-  height: 120rpx;
+  width: 124rpx;
+  height: 124rpx;
   border-radius: 50%;
-  background: #000;
+  background: linear-gradient(135deg, var(--o1), var(--o2));
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 16rpx 36rpx rgba(255, 94, 31, 0.3);
 }
-
 .avatar-text {
-  font-size: 48rpx;
   color: #fff;
-  font-weight: 500;
+  font-size: 52rpx;
+  font-weight: 700;
 }
-
-.status-badge {
-  margin-top: 20rpx;
-  padding: 8rpx 24rpx;
-  background: #52c41a;
-  color: #fff;
-  font-size: 24rpx;
-  border-radius: 999rpx;
-}
-
-.status-badge.single {
-  background: #fa8c16;
-}
-
-.status-sub {
-  margin-top: 12rpx;
-  color: #999;
-  font-size: 22rpx;
-}
-
-.section {
-  margin-top: 24rpx;
-  background: #fff;
-  padding: 0 32rpx;
-}
-
-.section-title {
-  display: block;
-  padding: 32rpx 0 24rpx;
-  font-size: 28rpx;
-  font-weight: 500;
-  color: #333;
-}
-
-/* 测量记录 */
-.record-list {
+.profile-info {
   display: flex;
   flex-direction: column;
+  gap: 8rpx;
 }
-
-.record-item {
+.name-row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 28rpx 0;
-  border-bottom: 1rpx solid #eee;
+  gap: 16rpx;
+}
+.name {
+  font-size: 38rpx;
+  font-weight: 700;
+}
+.status-badge {
+  font-size: 22rpx;
+  font-weight: 700;
+  color: var(--o-strong);
+  background: var(--o-soft);
+  padding: 6rpx 18rpx;
+  border-radius: 999rpx;
+}
+.status-badge.single {
+  color: var(--conf-high-c);
+  background: var(--conf-high-b);
+}
+.profile-sub {
+  font-size: 26rpx;
+  color: var(--ink-2);
+}
+.profile-sub.expire {
+  font-size: 24rpx;
+  color: var(--ink-3);
 }
 
-.record-item:last-child {
+/* 记录卡 */
+.record-card {
+  padding: 12rpx 32rpx;
+}
+.record-head {
+  padding: 22rpx 0 12rpx;
+}
+/* 左滑容器：露出右侧删除按钮 */
+.record-swipe {
+  position: relative;
+  overflow: hidden;
+  border-bottom: 1rpx solid var(--line);
+}
+.record-swipe:last-child {
   border-bottom: none;
 }
-
-.record-main {
+.record-del {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 140rpx;
   display: flex;
   align-items: center;
-  gap: 24rpx;
-}
-
-.record-pd {
-  font-size: 32rpx;
-  font-weight: 600;
-  color: #000;
-}
-
-.record-face {
-  font-size: 26rpx;
-  color: #666;
-}
-
-.record-sub {
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
-}
-
-.record-time {
-  font-size: 24rpx;
-  color: #999;
-}
-
-.record-arrow {
-  font-size: 32rpx;
-  color: #ccc;
-}
-
-/* 空记录 */
-.empty-record {
-  padding: 60rpx 0;
-  text-align: center;
-}
-
-.empty-text {
-  display: block;
+  justify-content: center;
+  background: var(--o-strong);
+  color: #fff;
   font-size: 28rpx;
-  color: #999;
+  font-weight: 600;
+  z-index: 1;
 }
-
-.empty-tip {
-  display: block;
-  margin-top: 12rpx;
+.record-item {
+  position: relative;
+  z-index: 2;
+  background: var(--card);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 26rpx 0;
+  transition: transform 0.22s ease;
+}
+.record-item.swiped {
+  transform: translateX(-140rpx);
+}
+/* 展开 / 收起 */
+.record-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  padding: 24rpx 0 12rpx;
+  font-size: 26rpx;
+  color: var(--ink-3);
+}
+.record-toggle-ic {
+  font-size: 28rpx;
+  line-height: 1;
+}
+.record-line {
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+}
+.record-name {
   font-size: 24rpx;
-  color: #bbb;
+  font-weight: 600;
+  color: var(--o-strong);
+  background: var(--o-soft);
+  padding: 4rpx 16rpx;
+  border-radius: 999rpx;
+  max-width: 220rpx;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.record-pd {
+  font-size: 36rpx;
+  font-weight: 800;
+}
+.record-unit {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.record-sub {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 25rpx;
+  color: var(--ink-3);
+}
+.record-arrow {
+  font-size: 40rpx;
+  color: #c4c0b9;
 }
 
-/* 菜单 */
+.empty-record {
+  padding: 48rpx 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14rpx;
+}
+.empty-text {
+  font-size: 28rpx;
+  color: var(--ink-3);
+}
+.empty-tip {
+  font-size: 24rpx;
+  color: var(--ink-3);
+}
+
+/* 设置 */
+.menu-card {
+  margin-top: 28rpx;
+  padding: 6rpx 32rpx;
+}
 .menu-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 32rpx 0;
-  border-bottom: 1rpx solid #eee;
+  padding: 30rpx 0;
+  border-bottom: 1rpx solid var(--line);
 }
-
-.menu-item:last-child {
+.menu-item.last {
   border-bottom: none;
 }
-
 .menu-text {
   font-size: 30rpx;
-  color: #333;
+  font-weight: 600;
 }
-
 .menu-arrow {
-  font-size: 36rpx;
-  color: #ccc;
-}
-
-.footer {
-  flex: 1;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  padding-bottom: 60rpx;
+  font-size: 40rpx;
+  color: #c4c0b9;
 }
 
 .version {
-  font-size: 24rpx;
-  color: #bbb;
+  display: block;
+  text-align: center;
+  margin-top: 52rpx;
+  font-size: 22rpx;
+  color: var(--ink-3);
 }
