@@ -352,6 +352,20 @@ Page({
     // 瞳距超出生理范围：检测出错，硬性重拍，绝不放行（不会污染中位数）
     if (totalPd < 50 || totalPd > 80) {
       this.shotFailCount = (this.shotFailCount || 0) + 1
+      // 连续多次超范围：给具体排查建议 + 返回出口，避免卡死
+      if (this.shotFailCount >= 3) {
+        wx.showModal({
+          title: '多次未能测准',
+          content: '连续几次测得的瞳距都超出正常范围(50–80mm)。多为光线不足、距离不对(约一臂、50cm)或没摘眼镜所致。建议换光线充足的环境、正对镜头、摘掉眼镜再试。',
+          confirmText: '再试一次',
+          cancelText: '返回',
+          success: (res) => {
+            if (res.confirm) this.setData({ detecting: false })
+            else wx.navigateBack()
+          }
+        })
+        return
+      }
       this.handleMeasureFail(`检测到瞳距 ${totalPd}mm，超出正常范围(50-80mm)，请正对镜头、光线充足后重拍。`)
       return
     }
