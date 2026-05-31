@@ -1,95 +1,78 @@
-<scroll-view class="page" scroll-y>
-  <view class="bg-orb orb-1"></view>
-  <view class="bg-orb orb-2"></view>
-  <view class="content">
-    <view class="hero">
-      <view class="hero-badge">AI 智能测瞳距</view>
-      <text class="title">智能测出瞳距</text>
-      <text class="subtitle">正脸拍照，AI 自动识别虹膜测瞳距，三次取中位数更稳</text>
-      <view class="hero-pills">
-        <text class="pill">无需卡片</text>
-        <text class="pill">正脸拍照</text>
-        <text class="pill">结果含建议</text>
-      </view>
-      <button class="btn-start" bindtap="onStart">开始测量</button>
-      <view class="status-wrap">
-        <text wx:if="{{userStatus !== 'none'}}" class="status-tip">{{statusText}}</text>
-      </view>
-    </view>
+<view class="page">
+  <view class="bg-glow"></view>
 
-    <view class="spotlight">
-      <view class="spotlight-item">
-        <text class="spotlight-title">AI 自动测量</text>
-        <text class="spotlight-desc">正脸拍照即可，无需卡片、无需手动对齐</text>
-      </view>
-      <view class="spotlight-item">
-        <text class="spotlight-title">智能修复</text>
-        <text class="spotlight-desc">异常值拦截，结果波动提示重测</text>
-      </view>
-      <view class="spotlight-item">
-        <text class="spotlight-title">一次测量拍 3 张</text>
-        <text class="spotlight-desc">¥9.9 含 3 次测量（一次测量需拍 3 张）</text>
-      </view>
-    </view>
-
-    <view class="section">
-      <text class="section-title">你将得到</text>
-      <view class="param-list">
-        <view class="param-item">
-          <text class="param-name">瞳距 PD</text>
-          <text class="param-desc">总瞳距、单眼瞳距</text>
-        </view>
-        <view class="param-item">
-          <text class="param-name">三次统计</text>
-          <text class="param-desc">中位数、波动范围、可信度</text>
+  <scroll-view class="body" scroll-y>
+    <view class="content">
+      <!-- HERO -->
+      <view class="hero">
+        <view class="u-badge"><view class="u-dot"></view>AI 智能测瞳距</view>
+        <text class="title">正脸拍照,快速测出瞳距</text>
+        <view class="status-wrap">
+          <text wx:if="{{userStatus !== 'none'}}" class="status-tip">{{statusText}}</text>
         </view>
       </view>
-    </view>
 
-    <view class="section">
-      <text class="section-title">准备</text>
-      <view class="tag-list">
-        <text class="tag">摘掉眼镜</text>
-        <text class="tag">光线充足</text>
-        <text class="tag">手机距脸约一臂(30-40cm)</text>
-        <text class="tag">正脸拍照</text>
+      <!-- 三步完成 -->
+      <view class="block">
+        <text class="u-eyebrow">三步完成，快速得出结果</text>
+        <view class="steps">
+          <view class="steps-line"></view>
+          <view class="step">
+            <view class="step-num">1</view>
+            <text class="step-label">正脸拍照</text>
+          </view>
+          <view class="step">
+            <view class="step-num">2</view>
+            <text class="step-label">AI 识别虹膜</text>
+          </view>
+          <view class="step">
+            <view class="step-num">3</view>
+            <text class="step-label">得到 PD 结果</text>
+          </view>
+        </view>
       </view>
-    </view>
 
-    <view class="section">
-      <text class="section-title">流程</text>
-      <view class="step-list">
-        <view class="step-item">
-          <text class="step-num">1</text>
-          <text class="step-text">摘掉眼镜，正脸看镜头，手机举到与眼睛同高、约一臂距离</text>
+      <!-- 你将得到 · 规格条 -->
+      <view class="u-card spec-strip">
+        <view class="spec-col">
+          <text class="spec-name">瞳距 PD</text>
+          <text class="spec-desc">总 / 单眼瞳距</text>
         </view>
-        <view class="step-item">
-          <text class="step-num">2</text>
-          <text class="step-text">点击拍照，AI 自动识别虹膜与瞳孔</text>
+        <view class="spec-divider"></view>
+        <view class="spec-col">
+          <text class="spec-name">三张统计</text>
+          <text class="spec-desc">中位数 · 稳定度</text>
         </view>
-        <view class="step-item">
-          <text class="step-num">3</text>
-          <text class="step-text">一次测量需拍 3 张照片，自动取中位数更准</text>
+        <view class="spec-divider"></view>
+        <view class="spec-col">
+          <text class="spec-name">配镜建议</text>
+          <text class="spec-desc">结果含解读</text>
+        </view>
+      </view>
+
+      <!-- 特性 -->
+      <view class="u-card feat-card">
+        <view class="feat">
+          <view class="feat-ic cam"></view>
+          <view class="feat-text">
+            <text class="feat-title">AI 自动测量</text>
+            <text class="feat-desc">正脸拍照即可，无需卡片、无需手动对齐。</text>
+          </view>
+        </view>
+        <view class="feat">
+          <view class="feat-ic shield"></view>
+          <view class="feat-text">
+            <text class="feat-title">智能修复</text>
+            <text class="feat-desc">异常值自动拦截，结果波动时提示重测。</text>
+          </view>
         </view>
       </view>
     </view>
+  </scroll-view>
 
-    <view class="footer">
-      <text class="notice">仅供线上配镜参数填写参考\n不替代专业验光或医疗建议</text>
-    </view>
-  </view>
-</scroll-view>
-
-<!-- 付费提示弹窗 -->
-<view class="modal-mask" wx:if="{{showPayTip}}" bindtap="closePayTip">
-  <view class="modal-content" catchtap="noop">
-    <view class="modal-body">
-      <text class="modal-title">温馨提示</text>
-      <text class="modal-desc">¥9.9 解锁 3 次测量包（一次测量需拍 3 张）</text>
-      <text class="modal-price">¥9.9 起</text>
-    </view>
-    <view class="modal-footer">
-      <button class="modal-btn" bindtap="continueMeasure">开始测量</button>
-    </view>
+  <!-- 吸底操作条（与 tabBar 堆叠，不浮动遮挡） -->
+  <view class="home-actionbar">
+    <view class="u-price-line">拍 3 张自动取中位数，结果更稳 · 一次测量 <text class="u-strong">¥9.9</text></view>
+    <button class="u-cta" bindtap="onStart">开始测量</button>
   </view>
 </view>

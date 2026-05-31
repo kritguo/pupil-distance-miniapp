@@ -1,7 +1,26 @@
 /**app.wxss**/
 page {
-  color: #222;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  /* ===== 设计系统 token(方案 A · 橙色聚焦) ===== */
+  --ink: #1b1b1f;
+  --ink-2: #5b5d66;
+  --ink-3: #9498a3;
+  --line: rgba(20, 22, 30, 0.08);
+  --card: #ffffff;
+  --o1: #ff8a3d;
+  --o2: #ff5e1f;
+  --o-strong: #e8501a;
+  --o-soft: #fff4ec;
+  --o-tint: #fff8f3;
+  /* 可信度色 */
+  --conf-high-c: #1c8a4e;
+  --conf-high-b: #e4f6ea;
+  --conf-mid-c: #b06a00;
+  --conf-mid-b: #fff1d6;
+  --conf-low-c: #c2440f;
+  --conf-low-b: #ffe7dd;
+
+  color: var(--ink);
+  font-family: "PingFang SC", -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
   background-color: #fff;
 }
 
@@ -13,4 +32,105 @@ button {
 
 button::after {
   border: none;
+}
+
+/* ===================== 共享组件类(u-*) ===================== */
+
+/* 卡片（轻量：细描边 + 极淡阴影） */
+.u-card {
+  background: var(--card);
+  border-radius: 32rpx;
+  padding: 32rpx 36rpx;
+  border: 1rpx solid rgba(20, 22, 30, 0.05);
+  box-shadow: 0 4rpx 18rpx rgba(20, 22, 40, 0.03);
+}
+
+/* 小标题/眉标 */
+.u-eyebrow {
+  font-size: 24rpx;
+  font-weight: 600;
+  letter-spacing: 2rpx;
+  color: var(--ink-3);
+}
+.u-card-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+/* 徽章(状态/标签) */
+.u-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 10rpx;
+  padding: 7rpx 20rpx;
+  border-radius: 999rpx;
+  font-size: 23rpx;
+  font-weight: 500;
+  letter-spacing: 1rpx;
+  background: var(--o-soft);
+  color: var(--o-strong);
+}
+.u-badge .u-dot {
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  background: var(--o2);
+}
+
+/* 可信度色块 */
+.u-conf {
+  font-size: 24rpx;
+  font-weight: 700;
+  padding: 6rpx 22rpx;
+  border-radius: 22rpx;
+}
+.u-conf.high { color: var(--conf-high-c); background: var(--conf-high-b); }
+.u-conf.mid  { color: var(--conf-mid-c);  background: var(--conf-mid-b); }
+.u-conf.low  { color: var(--conf-low-c);  background: var(--conf-low-b); }
+
+/* 吸底操作区(固定底部) */
+.u-actionbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 20rpx 40rpx calc(20rpx + env(safe-area-inset-bottom));
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: saturate(1.4) blur(16rpx);
+  border-top: 1rpx solid var(--line);
+  z-index: 50;
+}
+.u-price-line {
+  text-align: center;
+  font-size: 25rpx;
+  color: var(--ink-3);
+  margin-bottom: 18rpx;
+}
+.u-price-line .u-strong { color: var(--ink-2); font-weight: 600; }
+
+/* 主按钮(橙色渐变) */
+.u-cta {
+  width: 100% !important;
+  margin: 0 !important;
+  height: 100rpx;
+  border: none;
+  border-radius: 50rpx;
+  color: #fff;
+  font-size: 33rpx;
+  font-weight: 700;
+  letter-spacing: 2rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(90deg, var(--o1), var(--o2));
+  box-shadow: 0 10rpx 24rpx rgba(255, 94, 31, 0.22);
+}
+.u-cta::after { border: none; }
+/* 次按钮(描边) */
+.u-cta.ghost {
+  background: #fff;
+  color: var(--o2);
+  border: 3rpx solid var(--o2);
+  box-shadow: none;
 }

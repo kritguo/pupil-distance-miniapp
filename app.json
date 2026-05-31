@@ -8,12 +8,12 @@
   ],
   "window": {
     "navigationBarTextStyle": "black",
-    "navigationBarTitleText": "配镜参数补齐",
+    "navigationBarTitleText": "快速测瞳距PDgo",
     "navigationBarBackgroundColor": "#ffffff"
   },
   "tabBar": {
-    "color": "#999999",
-    "selectedColor": "#000000",
+    "color": "#9498a3",
+    "selectedColor": "#ef5e1f",
     "backgroundColor": "#ffffff",
     "borderStyle": "black",
     "list": [

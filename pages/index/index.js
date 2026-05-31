@@ -3,7 +3,6 @@ const pay = require('../../utils/pay.js')
 
 Page({
   data: {
-    showPayTip: false,
     userStatus: 'none',
     statusText: ''
   },
@@ -30,26 +29,9 @@ Page({
     if (userUtil.isUnlimited()) {
       userUtil.resetUnlimitedSession()
     }
-    // 检查是否需要显示付费提示
-    if (userUtil.shouldShowPayTip()) {
-      this.setData({ showPayTip: true })
-    } else {
-      this.goMeasure()
-    }
-  },
-
-  // 关闭付费提示弹窗
-  closePayTip() {
-    this.setData({ showPayTip: false })
-  },
-
-  // 继续测量（关闭弹窗后进入测量）
-  continueMeasure() {
-    this.setData({ showPayTip: false })
+    // 首页价格行已说明「一次测量 ¥9.9」，点击直接进入测量页，不再二次弹窗
     this.goMeasure()
   },
-
-  noop() {},
 
   // 跳转测量页
   goMeasure() {

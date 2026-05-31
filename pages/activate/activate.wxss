@@ -45,17 +45,18 @@ page {
 
 .btn-activate {
   margin-top: 32rpx;
-  width: 100%;
+  width: 100% !important;
   height: 96rpx;
-  background: #000;
+  background: linear-gradient(90deg, var(--o1), var(--o2));
   color: #fff;
   font-size: 32rpx;
-  font-weight: 500;
+  font-weight: 700;
   border-radius: 999rpx;
   border: none;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 14rpx 30rpx rgba(255, 94, 31, 0.3);
 }
 
 .btn-activate::after {
@@ -63,8 +64,9 @@ page {
 }
 
 .btn-activate[disabled] {
-  background: #ccc;
+  background: #e3ddd6;
   color: #fff;
+  box-shadow: none;
 }
 
 .tips {
@@ -108,12 +110,13 @@ page {
   width: 120rpx;
   height: 120rpx;
   border-radius: 50%;
-  background: #52c41a;
+  background: linear-gradient(135deg, var(--o1), var(--o2));
   color: #fff;
   font-size: 60rpx;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 16rpx 36rpx rgba(255, 94, 31, 0.3);
 }
 
 .success-title {
@@ -133,17 +136,18 @@ page {
 
 .btn-start {
   margin-top: 60rpx;
-  width: 400rpx;
+  width: 400rpx !important;
   height: 96rpx;
-  background: #000;
+  background: linear-gradient(90deg, var(--o1), var(--o2));
   color: #fff;
   font-size: 32rpx;
-  font-weight: 500;
+  font-weight: 700;
   border-radius: 999rpx;
   border: none;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 14rpx 30rpx rgba(255, 94, 31, 0.3);
 }
 
 .btn-start::after {
