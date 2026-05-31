@@ -485,7 +485,7 @@ page {
   font-weight: 700;
 }
 .lens-calc {
-  margin-top: 40rpx;
+  margin-top: 56rpx;
   height: 84rpx;
   font-size: 29rpx;
 }
