@@ -469,5 +469,12 @@ Page({
     wx.setStorageSync('latestResult', last)
     const isTrial = (!isUnlimited && !canFree)
     wx.navigateTo({ url: '/pages/result/result' + (isTrial ? '?trial=1' : '') })
+  },
+
+  onShareAppMessage() {
+    return { title: '快速测瞳距PDgo · 正脸拍照，快速测出你的瞳距', path: '/pages/index/index' }
+  },
+  onShareTimeline() {
+    return { title: '快速测瞳距PDgo · 正脸拍照，快速测出你的瞳距' }
   }
 })

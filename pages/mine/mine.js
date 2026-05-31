@@ -163,5 +163,12 @@ Page({
       content: '瞳距测量小程序，帮助您测量总瞳距和单眼瞳距，获取配镜参数参考。仅供参考，不替代专业验光。',
       showCancel: false
     })
+  },
+
+  onShareAppMessage() {
+    return { title: '快速测瞳距PDgo · 正脸拍照，快速测出你的瞳距', path: '/pages/index/index' }
+  },
+  onShareTimeline() {
+    return { title: '快速测瞳距PDgo · 正脸拍照，快速测出你的瞳距' }
   }
 })

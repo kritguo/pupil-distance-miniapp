@@ -38,5 +38,12 @@ Page({
     wx.navigateTo({
       url: '/pages/measure/measure'
     })
+  },
+
+  onShareAppMessage() {
+    return { title: '快速测瞳距PDgo · 正脸拍照，快速测出你的瞳距', path: '/pages/index/index' }
+  },
+  onShareTimeline() {
+    return { title: '快速测瞳距PDgo · 正脸拍照，快速测出你的瞳距' }
   }
 })
