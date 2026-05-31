@@ -352,6 +352,9 @@ page {
   color: var(--ink-3);
   line-height: 1.5;
 }
+.card-note.warn {
+  color: var(--conf-mid-c);
+}
 
 /* 配镜下单参数 */
 .order-box {
@@ -412,18 +415,49 @@ page {
 }
 
 /* 镜片建议输入 */
-.lens-input-row {
-  margin-top: 20rpx;
+.lens-hint {
+  display: block;
+  margin-top: 8rpx;
+  margin-bottom: 6rpx;
+  font-size: 24rpx;
+  color: var(--ink-3);
+}
+.lens-eye-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-top: 14rpx;
+}
+.lens-eye-label {
+  flex: 0 0 56rpx;
+  font-size: 27rpx;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.lens-field {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  height: 80rpx;
+  background: #f6f7f9;
+  border-radius: 18rpx;
+  padding: 0 20rpx;
+}
+.lens-field-unit {
+  flex: 0 0 auto;
+  font-size: 24rpx;
+  color: var(--ink-3);
+  margin-left: 8rpx;
 }
 .lens-input {
-  height: 84rpx;
-  background: #f6f7f9;
-  border-radius: 20rpx;
-  padding: 0 28rpx;
-  font-size: 28rpx;
+  flex: 1;
+  height: 80rpx;
+  background: transparent;
+  padding: 0;
+  font-size: 27rpx;
 }
 .lens-usage-row {
-  margin-top: 20rpx;
+  margin-top: 28rpx;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -451,7 +485,7 @@ page {
   font-weight: 700;
 }
 .lens-calc {
-  margin-top: 24rpx;
+  margin-top: 40rpx;
   height: 84rpx;
   font-size: 29rpx;
 }

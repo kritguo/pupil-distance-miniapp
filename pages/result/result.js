@@ -122,32 +122,12 @@ const LENS_INDEX_RULES = [
   { maxDegree: Infinity, index: '1.74', name: '极薄' }
 ]
 
-// 用途推荐
-const USAGE_RECOMMENDATIONS = {
-  daily: {
-    name: '日常通用',
-    lensType: '非球面镜片',
-    coating: '加硬膜',
-    desc: '适合日常生活使用'
-  },
-  bluelight: {
-    name: '防蓝光',
-    lensType: '防蓝光镜片',
-    coating: '防蓝光膜层',
-    desc: '适合长时间使用电子设备'
-  },
-  driving: {
-    name: '驾驶',
-    lensType: '偏光镜片',
-    coating: '防眩光膜',
-    desc: '减少强光刺激，驾驶更安全'
-  },
-  reading: {
-    name: '阅读办公',
-    lensType: '渐进多焦点',
-    coating: '抗疲劳膜',
-    desc: '适合近距离长时间阅读'
-  }
+// 用途 → 膜层/说明（折射率与面型由度数另算；不再把普通阅读误判为渐进多焦点）
+const USAGE_ADVICE = {
+  daily:     { name: '日常通用', coating: '加硬膜 + 减反射(绿)膜', note: '日常室内外通用' },
+  bluelight: { name: '防蓝光',   coating: '加硬膜 + 防蓝光膜 + 减反射膜', note: '长时间看手机/电脑可选，缓解视疲劳' },
+  driving:   { name: '驾驶',     coating: '加硬膜 + 减反射膜 + 偏光/变色(户外)', note: '减少眩光，白天驾驶更清晰' },
+  reading:   { name: '阅读办公', coating: '加硬膜 + 减反射膜 + 抗疲劳设计', note: '近距离用眼多；若已老花，请验光后配渐进/双光镜' }
 }
 
 Page({
@@ -175,8 +155,8 @@ Page({
     trialResults: [],
     // 镜框推荐（基于脸宽自动计算）
     frameRecommendation: null,
-    // 镜片建议
-    degree: '',
+    // 镜片建议（按验光单分左右眼：球镜 + 散光选填）
+    sphL: '', sphR: '', cylL: '', cylR: '',
     usageOptions: [
       { value: 'daily', label: '日常通用' },
       { value: 'bluelight', label: '防蓝光' },
@@ -505,9 +485,10 @@ Page({
     })
   },
 
-  // 度数输入
-  onDegreeInput(e) {
-    this.setData({ degree: e.detail.value })
+  // 度数/散光输入（左右眼，data-field 指定字段）
+  onLensInput(e) {
+    const field = e.currentTarget.dataset.field
+    if (field) this.setData({ [field]: e.detail.value })
   },
 
   // 用途选择
@@ -515,36 +496,53 @@ Page({
     this.setData({ selectedUsage: e.detail.value })
   },
 
-  // 计算镜片建议
+  // 计算镜片建议（严谨版：左右眼 球镜+散光 → 有效度数 → 折射率/面型；接入测得 PD）
   calcLensAdvice() {
-    const { degree, selectedUsage } = this.data
-    const deg = parseFloat(degree)
+    const { sphL, sphR, cylL, cylR, selectedUsage, displayResult, result } = this.data
+    const nL = parseFloat(sphL) || 0
+    const nR = parseFloat(sphR) || 0
+    const cL = parseFloat(cylL) || 0
+    const cR = parseFloat(cylR) || 0
 
-    if (!deg || deg < 0 || deg > 2000) {
-      wx.showToast({ title: '请输入有效度数(0-2000)', icon: 'none' })
+    if (nL <= 0 && nR <= 0) {
+      wx.showToast({ title: '请至少输入一只眼的度数', icon: 'none' })
+      return
+    }
+    if ([nL, nR, cL, cR].some((v) => v < 0 || v > 3000)) {
+      wx.showToast({ title: '度数请填 0–3000', icon: 'none' })
       return
     }
 
-    // 折射率推荐
-    let recommendedIndex = LENS_INDEX_RULES[0]
+    // 有效度数 = 球镜 + 散光；折射率按更高那只眼来定（镜片越厚越需要高折射率）
+    const effL = Math.round(nL + cL)
+    const effR = Math.round(nR + cR)
+    const maxEff = Math.max(effL, effR)
+
+    let idx = LENS_INDEX_RULES[LENS_INDEX_RULES.length - 1]
     for (const rule of LENS_INDEX_RULES) {
-      if (deg <= rule.maxDegree) {
-        recommendedIndex = rule
-        break
-      }
+      if (maxEff <= rule.maxDegree) { idx = rule; break }
     }
 
-    // 用途推荐
-    const usageInfo = USAGE_RECOMMENDATIONS[selectedUsage]
+    const lensShape = maxEff >= 600 ? '双面非球面' : '非球面'
+    const usage = USAGE_ADVICE[selectedUsage] || USAGE_ADVICE.daily
+    const anisoDiff = Math.abs(effL - effR)
+    const aniso = anisoDiff >= 250
+    const primary = displayResult || result
+    const pd = primary && primary.totalPd
 
     this.setData({
       lensAdvice: {
-        degree: deg,
-        index: recommendedIndex.index,
-        indexName: recommendedIndex.name,
-        lensType: usageInfo.lensType,
-        coating: usageInfo.coating,
-        usageDesc: usageInfo.desc
+        effL,
+        effR,
+        index: idx.index,
+        indexName: idx.name,
+        lensShape,
+        coating: usage.coating,
+        usageNote: usage.note,
+        pd: pd || null,
+        aniso,
+        anisoDiff,
+        disclaimer: '仅供选片参考。实际配镜请以验光单(含散光轴位)和验光师建议为准。'
       }
     })
   },
@@ -603,9 +601,9 @@ Page({
     if (lensAdvice) {
       lines.push('')
       lines.push('【镜片建议】')
-      lines.push(`度数：${lensAdvice.degree}度`)
+      lines.push(`有效度数：左 ${lensAdvice.effL} / 右 ${lensAdvice.effR} 度`)
       lines.push(`推荐折射率：${lensAdvice.index}（${lensAdvice.indexName}）`)
-      lines.push(`推荐镜片：${lensAdvice.lensType}`)
+      lines.push(`镜片面型：${lensAdvice.lensShape}`)
       lines.push(`推荐膜层：${lensAdvice.coating}`)
     }
 

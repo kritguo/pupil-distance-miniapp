@@ -73,8 +73,9 @@ const applyGrant = (user, grant, now) => {
     consumedResults: (user && user.consumedResults) || []
   }
   if (grant === 'single') {
-    next.remainCount += 3
-    next.totalSinglePurchased += 3
+    // ¥9.9 = 一次测量（拍 3 张取中位数）。可信度中/低时由 grantRetest 免费补测，直到测出「高」。
+    next.remainCount += 1
+    next.totalSinglePurchased += 1
   } else if (grant === 'annual') {
     next.annualExpireAt = Math.max(now, next.annualExpireAt || 0) + YEAR_MS
   }

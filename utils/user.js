@@ -30,7 +30,7 @@ function getUserInfo() {
     annualExpireAt: 0,   // 年度会员到期时间戳(ms)，0 表示非年度会员
     records: [],         // 测量记录（年度会员用）
     lastUnlockedResultTs: null, // 单次用户已解锁的结果时间戳（本地去重，避免重复扣次）
-    singleBatch: { id: null, results: [] }, // 单次测量包（3次）
+    singleBatch: { id: null, results: [] }, // 一次测量的 3 张照片（取中位数）
     unlimitedSession: { id: null, results: [] }, // 年度会员测量会话
     trialBatch: { id: null, results: [] }, // 试测缓存（未付费）
     serverSyncedAt: null, // 最近一次服务端权益同步时间

@@ -39,6 +39,35 @@ Page({
       userUtil.resetTrialBatch()
       userUtil.resetSingleBatch()
     }
+    // 进页面即预热云托管容器：用户对准脸的几秒里把它唤醒，规避冷启动超时
+    this.warmUpService()
+  },
+
+  // 预热：给测量容器发个轻量请求把它从缩容(0 实例)状态唤醒。fire-and-forget，失败无所谓。
+  warmUpService() {
+    const cloudAuto = config.cloudAuto || {}
+    if (!cloudAuto.enabled) return
+    try {
+      if (cloudAuto.mode === 'container' && wx.cloud && typeof wx.cloud.callContainer === 'function') {
+        wx.cloud.callContainer({
+          config: { env: cloudAuto.containerEnv || '' },
+          path: '/health',
+          method: 'GET',
+          timeout: 20000,
+          header: { 'X-WX-SERVICE': cloudAuto.service },
+          success: () => {},
+          fail: () => {}
+        })
+      } else if (cloudAuto.endpoint && typeof wx.request === 'function') {
+        wx.request({
+          url: cloudAuto.endpoint.replace(/\/v1\/measure.*$/, '/health'),
+          method: 'GET',
+          timeout: 20000,
+          success: () => {},
+          fail: () => {}
+        })
+      }
+    } catch (e) {}
   },
 
   goBack() {
@@ -76,8 +105,9 @@ Page({
     this.requestAutoMeasureServer(path)
   },
 
-  // 上传照片到云端测量服务
-  requestAutoMeasureServer(imagePath) {
+  // 上传照片到云端测量服务（attempt：当前是第几次尝试，用于冷启动超时自动重试）
+  requestAutoMeasureServer(imagePath, attempt) {
+    attempt = attempt || 0
     const cloudAuto = config.cloudAuto || {}
     if (!cloudAuto.enabled || !cloudAuto.endpoint) {
       wx.hideLoading()
@@ -91,6 +121,13 @@ Page({
     }
 
     const fail = (message) => {
+      // 冷启动超时：第一次请求其实已把容器唤醒，自动重试一次（不打断、不弹窗）
+      const isTimeout = /超时|timeout|102002/i.test(String(message))
+      if (isTimeout && attempt < 1) {
+        wx.showLoading({ title: '服务启动中，重试…', mask: true })
+        setTimeout(() => this.requestAutoMeasureServer(imagePath, attempt + 1), 1500)
+        return
+      }
       wx.hideLoading()
       this.setData({ detecting: false })
       this.handleMeasureFail(message)

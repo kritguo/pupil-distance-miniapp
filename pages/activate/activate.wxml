@@ -23,7 +23,7 @@
       <text class="tips-title">卡密类型说明</text>
       <view class="tips-item">
         <text class="tips-label">单次卡密</text>
-        <text class="tips-value">可测量 3 次（一次测量需拍 3 张）</text>
+        <text class="tips-value">一次测量（拍 3 张取中位数；可信度不足可免费补测）</text>
       </view>
       <view class="tips-item">
         <text class="tips-label">无限卡密</text>
@@ -36,7 +36,7 @@
   <view class="content success" wx:if="{{activated}}">
     <view class="success-icon">✓</view>
     <text class="success-title">激活成功</text>
-    <text class="success-desc" wx:if="{{activateType === 'single'}}">您已获得 3 次测量机会（一次测量需拍 3 张照片）</text>
+    <text class="success-desc" wx:if="{{activateType === 'single'}}">您已获得一次测量机会（拍 3 张取中位数）</text>
     <text class="success-desc" wx:if="{{activateType === 'unlimited'}}">您已解锁无限次测量\n测量数据将自动保存</text>
 
     <button class="btn-start" bindtap="goMeasure">开始测量</button>

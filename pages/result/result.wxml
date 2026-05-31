@@ -152,12 +152,34 @@
       </view>
     </view>
 
-    <!-- 镜片建议（度数输入） -->
+    <!-- 镜片建议（按验光单分左右眼，球镜+散光） -->
     <view class="u-card" wx:if="{{isPaid}}">
       <text class="u-card-title">镜片建议</text>
-      <view class="lens-input-row">
-        <input class="lens-input" type="digit" placeholder="输入度数" value="{{degree}}" bindinput="onDegreeInput" />
+      <text class="lens-hint">照验光单填左右眼度数，散光选填</text>
+
+      <view class="lens-eye-row">
+        <text class="lens-eye-label">左眼</text>
+        <view class="lens-field">
+          <input class="lens-input" type="digit" placeholder="球镜度数" value="{{sphL}}" bindinput="onLensInput" data-field="sphL" />
+          <text class="lens-field-unit">度</text>
+        </view>
+        <view class="lens-field">
+          <input class="lens-input" type="digit" placeholder="散光(选填)" value="{{cylL}}" bindinput="onLensInput" data-field="cylL" />
+          <text class="lens-field-unit">度</text>
+        </view>
       </view>
+      <view class="lens-eye-row">
+        <text class="lens-eye-label">右眼</text>
+        <view class="lens-field">
+          <input class="lens-input" type="digit" placeholder="球镜度数" value="{{sphR}}" bindinput="onLensInput" data-field="sphR" />
+          <text class="lens-field-unit">度</text>
+        </view>
+        <view class="lens-field">
+          <input class="lens-input" type="digit" placeholder="散光(选填)" value="{{cylR}}" bindinput="onLensInput" data-field="cylR" />
+          <text class="lens-field-unit">度</text>
+        </view>
+      </view>
+
       <view class="lens-usage-row">
         <text class="lens-usage-label">用途</text>
         <radio-group class="usage-group" bindchange="onUsageChange">
@@ -168,13 +190,17 @@
         </radio-group>
       </view>
       <button class="u-cta ghost lens-calc" bindtap="calcLensAdvice">获取建议</button>
+
       <view wx:if="{{lensAdvice}}" class="kv-list lens-result">
-        <view class="kv"><text class="kv-k">您的度数</text><text class="kv-v">{{lensAdvice.degree}} 度</text></view>
+        <view class="kv"><text class="kv-k">有效度数(球+散)</text><text class="kv-v">左 {{lensAdvice.effL}} / 右 {{lensAdvice.effR}} 度</text></view>
         <view class="kv"><text class="kv-k">推荐折射率</text><text class="kv-v">{{lensAdvice.index}}（{{lensAdvice.indexName}}）</text></view>
-        <view class="kv"><text class="kv-k">推荐镜片</text><text class="kv-v">{{lensAdvice.lensType}}</text></view>
+        <view class="kv"><text class="kv-k">镜片面型</text><text class="kv-v">{{lensAdvice.lensShape}}</text></view>
         <view class="kv"><text class="kv-k">推荐膜层</text><text class="kv-v">{{lensAdvice.coating}}</text></view>
+        <view class="kv" wx:if="{{lensAdvice.pd}}"><text class="kv-k">光心瞳距</text><text class="kv-v">{{lensAdvice.pd}} mm（本次测得）</text></view>
       </view>
-      <text class="card-note" wx:if="{{lensAdvice}}">{{lensAdvice.usageDesc}}</text>
+      <text class="card-note" wx:if="{{lensAdvice}}">{{lensAdvice.usageNote}}</text>
+      <text class="card-note warn" wx:if="{{lensAdvice && lensAdvice.aniso}}">⚠️ 左右眼有效度数相差 {{lensAdvice.anisoDiff}} 度，属不等视，建议尽量选薄镜片、并务必精准对准瞳距。</text>
+      <text class="card-note" wx:if="{{lensAdvice}}">{{lensAdvice.disclaimer}}</text>
     </view>
 
     <text class="notice">仅供参考，不替代专业验光</text>

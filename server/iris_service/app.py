@@ -453,6 +453,13 @@ def assess_quality(iris_conf: float, card_conf: float, validation: dict) -> dict
     }
 
 
+@app.get("/")
+@app.get("/health")
+def health():
+    # 轻量健康检查：用于小程序进测量页时预热容器，规避缩容到 0 后的冷启动超时
+    return {"ok": True, "service": "iris", "mediapipe": FACE_MESH is not None}
+
+
 @app.post("/v1/measure")
 def measure(req: MeasureRequest):
     if FACE_MESH is None:
