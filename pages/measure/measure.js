@@ -3,12 +3,11 @@
 
 const config = require('../../config.js')
 const userUtil = require('../../utils/user.js')
+const { buildCloudPdFields, buildMeasurePayload, isNumber } = require('../../utils/pd.js')
 
 const MIN_AUTO_QUALITY_SCORE = 0.8
 const ESCAPE_AFTER_FAILS = 3   // 同一张连续不达标 N 次后，才允许以低可信度放行
 
-const roundToHalf = (value) => Math.round(value * 2) / 2
-const isNumber = (value) => typeof value === 'number' && !Number.isNaN(value)
 const toNumber = (value) => {
   if (isNumber(value)) return value
   if (typeof value !== 'string') return null
@@ -52,6 +51,15 @@ Page({
     })
   },
 
+  onHelp() {
+    wx.showModal({
+      title: '拍摄要点',
+      content: '把脸对准框内、正脸看镜头，手机举到与眼睛同高、约一臂距离（约 50cm）。摘掉眼镜、光线充足、自然睁眼即可，无需手持任何卡片。',
+      showCancel: false,
+      confirmText: '知道了'
+    })
+  },
+
   takePhoto() {
     if (this.data.detecting) return
     const ctx = wx.createCameraContext()
@@ -91,7 +99,7 @@ Page({
     const onServerData = (data) => {
       wx.hideLoading()
       this.setData({ detecting: false })
-      if (data && data.ok && data.pd && isNumber(data.pd.total)) {
+      if (data && data.ok && buildCloudPdFields(data)) {
         this.applyCloudPdResult(data)
       } else {
         this.handleMeasureFail((data && data.message) || '未能识别到人脸，请正对镜头、保证光线充足后重拍。')
@@ -134,11 +142,10 @@ Page({
           method: 'POST',
           timeout: 30000,
           header: { 'Content-Type': 'application/json' },
-          data: {
-            image_base64: readRes.data,
-            card_width_mm: 85.6,
-            camera_position: this.data.cameraPosition || 'unknown'
-          },
+          data: buildMeasurePayload({
+            imageBase64: readRes.data,
+            cameraPosition: this.data.cameraPosition
+          }),
           success: (res) => {
             if (res && res.statusCode && res.statusCode >= 400) {
               onFail(`服务返回错误(${res.statusCode})：${JSON.stringify(res.data).slice(0, 120)}`)
@@ -187,11 +194,10 @@ Page({
                 'X-WX-SERVICE': cloudAuto.service,
                 'content-type': 'application/json'
               },
-              data: {
-                image_url: url,
-                card_width_mm: 85.6,
-                camera_position: this.data.cameraPosition || 'unknown'
-              },
+              data: buildMeasurePayload({
+                imageUrl: url,
+                cameraPosition: this.data.cameraPosition
+              }),
               success: (res) => {
                 this.cleanupCloudFile(fileID)
                 if (res && res.statusCode && res.statusCode >= 400) {
@@ -227,9 +233,20 @@ Page({
   },
 
   handleMeasureFail(message) {
+    // 完整错误打到 console 便于排查；给用户看干净的中文提示，别把云端 trace 糊脸上
+    console.warn('[Measure] 失败原始信息:', message)
+    const raw = String(message || '')
+    let friendly = raw
+    if (/超时|timeout|102002/i.test(raw)) {
+      friendly = '测量服务响应超时（服务可能正在冷启动）。请稍等几秒，再点「重新拍摄」试一次。'
+    } else if (/连接失败|callContainer:fail|request:fail|network|ECONN/i.test(raw)) {
+      friendly = '网络连接不稳定，请检查网络后重拍。'
+    } else if (raw.length > 90) {
+      friendly = raw.slice(0, 90) + '…'
+    }
     wx.showModal({
       title: '测量未成功',
-      content: message,
+      content: friendly,
       confirmText: '重新拍摄',
       showCancel: false,
       success: () => this.retake()
@@ -268,10 +285,12 @@ Page({
 
   // 处理云端返回的瞳距结果（拍照即出结果）
   applyCloudPdResult(data) {
-    const pd = data.pd
-    const totalPd = roundToHalf(pd.total)
-    const leftPd = isNumber(pd.left) ? roundToHalf(pd.left) : roundToHalf(totalPd / 2)
-    const rightPd = isNumber(pd.right) ? roundToHalf(pd.right) : roundToHalf(totalPd / 2)
+    const pdFields = buildCloudPdFields(data)
+    if (!pdFields) {
+      this.handleMeasureFail('未能识别到有效瞳距，请正对镜头、保证光线充足后重拍。')
+      return
+    }
+    const { totalPd, leftPd, rightPd } = pdFields
 
     // 瞳距超出生理范围：检测出错，硬性重拍，绝不放行（不会污染中位数）
     if (totalPd < 50 || totalPd > 80) {
@@ -301,7 +320,7 @@ Page({
           cancelText: '仍要使用',
           success: (res) => {
             if (res.confirm) this.setData({ detecting: false })
-            else this.commitShot(totalPd, leftPd, rightPd, '低')
+            else this.commitShot(pdFields, '低')
           }
         })
       }
@@ -314,15 +333,19 @@ Page({
     if (qs !== null) {
       confidence = qs >= 0.85 ? '高' : (qs >= MIN_AUTO_QUALITY_SCORE ? '中' : '低')
     }
-    this.commitShot(totalPd, leftPd, rightPd, confidence)
+    this.commitShot(pdFields, confidence)
   },
 
   // 把一张合格(或逃生阀放行)的结果计入会话
-  commitShot(totalPd, leftPd, rightPd, confidence) {
+  commitShot(pdFields, confidence) {
     const result = {
-      totalPd,
-      leftPd,
-      rightPd,
+      totalPd: pdFields.totalPd,
+      leftPd: pdFields.leftPd,
+      rightPd: pdFields.rightPd,
+      nearTotalPd: pdFields.nearTotalPd,
+      nearLeftPd: pdFields.nearLeftPd,
+      nearRightPd: pdFields.nearRightPd,
+      pdBasis: pdFields.pdBasis,
       faceWidth: null,
       confidence,
       timestamp: Date.now(),
@@ -337,22 +360,23 @@ Page({
     this.setData({ detecting: false })
   },
 
-  // 一次拍摄成功后累计到会话；不满 3 次提示重新举手机再拍，满 3 次出中位数结果
+  // 一次拍摄成功后累计到会话；不满 3 次用轻提示+进度点推进（不打断），满 3 次出中位数结果
   onMeasured(result) {
     this.shotFailCount = 0   // 这一张已通过，下一张失败计数清零
     this.sessionResults.push(result)
     const done = this.sessionResults.length
     if (done < this.data.totalShots) {
-      this.setData({ shotIndex: done })
-      wx.showModal({
-        title: `已完成 ${done}/${this.data.totalShots} 次`,
-        content: '请继续保持正脸看镜头，放松一下、重新举稳手机再拍一张，多拍几次取中位数更准。',
-        confirmText: '继续拍',
-        showCancel: false,
-        success: () => this.setData({ detecting: false })
+      // 不弹模态：点亮进度、解锁快门，给一个非阻塞的轻提示即可继续拍下一张
+      this.setData({ shotIndex: done, detecting: false })
+      wx.showToast({
+        title: `已拍 ${done}/${this.data.totalShots} 张，继续`,
+        icon: 'success',
+        duration: 1200
       })
       return
     }
+    // 第 3 张完成：进度点全亮，跳结果页
+    this.setData({ shotIndex: done })
     this.finishSession()
   },
 

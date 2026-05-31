@@ -3,50 +3,57 @@
   <view class="camera-fullscreen">
     <camera class="camera" device-position="{{cameraPosition}}" flash="off"></camera>
 
-    <!-- 顶部提示 -->
-    <view class="camera-tip">正脸看镜头 · 双眼睁大 · 光线充足</view>
-    <view class="glasses-warn">⚠️ 请摘掉眼镜，否则瞳距会测不准</view>
+    <!-- 顶/底 深色蒙版，保证文字可读 -->
+    <view class="scrim scrim-top"></view>
+    <view class="scrim scrim-bottom"></view>
 
-    <!-- 三连拍进度 -->
-    <view class="shot-progress">
-      <text class="shot-progress-text">第 {{shotIndex + 1}}/{{totalShots}} 次</text>
-      <view class="shot-dots">
-        <view class="shot-dot {{shotIndex > 0 ? 'done' : ''}}"></view>
-        <view class="shot-dot {{shotIndex > 1 ? 'done' : ''}}"></view>
-        <view class="shot-dot {{shotIndex > 2 ? 'done' : ''}}"></view>
+    <!-- ===== 顶部 ===== -->
+    <view class="cap-top">
+      <view class="top-row">
+        <view class="btn-icon" bindtap="goBack">
+          <text class="icon-arrow">‹</text>
+        </view>
+        <view class="shot-progress">
+          <text class="shot-progress-text">第 {{shotIndex + 1}} / {{totalShots}} 张</text>
+          <view class="shot-dots">
+            <view class="shot-dot {{shotIndex >= 1 ? 'on' : ''}}"></view>
+            <view class="shot-dot {{shotIndex >= 2 ? 'on' : ''}}"></view>
+            <view class="shot-dot {{shotIndex >= 3 ? 'on' : ''}}"></view>
+          </view>
+        </view>
+        <view class="btn-icon-placeholder"></view>
       </view>
-      <text class="shot-progress-hint" wx:if="{{shotIndex > 0}}">保持正脸，再拍一张取中位数更准</text>
+      <!-- 摘镜提示 chip -->
+      <view class="glasses-chip">⚠️ 摘掉眼镜测得更准</view>
     </view>
 
-    <!-- 人脸对准区域 + 眼位引导 -->
+    <!-- ===== 人脸引导框（含引导语，整体居中偏下，贴合手持时脸的位置） ===== -->
     <view class="face-guide">
+      <view class="guide-text">
+        <view class="guide-main">把瞳孔对准两个圈、双眼对齐横线</view>
+        <view class="guide-sub">举到与眼睛同高 · 约一臂距离（约 50cm）</view>
+      </view>
       <view class="face-outline">
         <view class="eye-line"></view>
         <view class="eye-mark left"></view>
         <view class="eye-mark right"></view>
-        <text class="eye-tip">双眼对齐这条线、对准两个圈</text>
       </view>
     </view>
 
-    <!-- 顶部返回按钮 -->
-    <view class="top-bar">
-      <view class="btn-icon" bindtap="goBack">
-        <text class="icon-arrow">‹</text>
-      </view>
-    </view>
-
-    <!-- 底部操作区 -->
-    <view class="capture-overlay">
-      <view class="capture-hint">把脸对准框内、正脸看镜头，手机举到与眼睛同高、约一臂距离（30–40cm）。摘掉眼镜、光线充足、自然睁眼即可，无需手持任何卡片。</view>
+    <!-- ===== 底部 ===== -->
+    <view class="cap-bottom">
       <view class="capture-bottom">
-        <view class="btn-icon" bindtap="switchCamera">
+        <view class="btn-round" bindtap="switchCamera">
           <text class="icon-switch">⟳</text>
         </view>
         <view class="btn-capture" bindtap="takePhoto">
           <view class="btn-capture-inner"></view>
         </view>
-        <view class="btn-icon-placeholder"></view>
+        <view class="btn-round" bindtap="onHelp">
+          <text class="icon-help">?</text>
+        </view>
       </view>
+      <view class="cap-sub">对准后点击快门拍摄，一次测量需拍 3 张</view>
     </view>
   </view>
 </view>
