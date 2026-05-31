@@ -41,6 +41,26 @@ Page({
     }
     // 进页面即预热云托管容器：用户对准脸的几秒里把它唤醒，规避冷启动超时
     this.warmUpService()
+    // 合规：首次测量前确认面部数据使用同意
+    this.ensureFaceConsent()
+  },
+
+  // 面部数据使用同意（首次弹一次，本地记住；不同意则退出测量页）
+  ensureFaceConsent() {
+    if (wx.getStorageSync('pd_face_consent')) return
+    wx.showModal({
+      title: '面部数据使用说明',
+      content: '测量瞳距需要拍摄你的正脸照片。照片仅用于本次瞳距识别，识别完成后即从服务器删除，不会留存或用于其他用途。是否同意并继续？',
+      confirmText: '同意并继续',
+      cancelText: '不同意',
+      success: (res) => {
+        if (res.confirm) {
+          wx.setStorageSync('pd_face_consent', Date.now())
+        } else {
+          wx.navigateBack()
+        }
+      }
+    })
   },
 
   // 预热：给测量容器发个轻量请求把它从缩容(0 实例)状态唤醒。fire-and-forget，失败无所谓。
