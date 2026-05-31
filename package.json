@@ -1,6 +1,9 @@
 {
   "name": "pupil-distance",
   "private": true,
+  "scripts": {
+    "test": "node --test tests/*.test.js"
+  },
   "dependencies": {
     "@mediapipe/tasks-vision": "^0.10.9"
   }
