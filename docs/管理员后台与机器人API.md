@@ -22,9 +22,24 @@
 
 `measureEvents` 是新增表，只有上线新版本后完成的测量才会进入这张表，历史测量无法反推。
 
-## 机器人调用
+## 外部调用方式（本环境 `cloud1-0gahgwwra45a0df3` = 微信原生云开发）
 
-给 `adminStats` 配 HTTP 触发器后，机器人请求：
+本环境在微信开发者工具的云开发控制台里**没有「HTTP访问服务」**，所以外部服务（如 Hermes 销售推送 Agent）**不走 HTTP 触发器 URL，走微信官方 `invokecloudfunction`**：
+
+1. 拿 access_token（缓存 2 小时，过期再拿）：
+   `GET https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=<APPID>&secret=<AppSecret>`
+2. 调函数（参数放 body，名字与下文 query 参数一致）：
+   `POST https://api.weixin.qq.com/tcb/invokecloudfunction?access_token=<token>&env=cloud1-0gahgwwra45a0df3&name=adminStats`
+   body：`{"action":"getRecentPaidOrders","limit":50,"token":"<ADMIN_API_TOKEN>"}`
+3. 返回 `{"errcode":0,"resp_data":"<JSON字符串>"}`，把 `resp_data` 再 `JSON.parse` 得到 `{ok:true,orders:[...]}`。
+
+要点：鉴权 token 从 body 的 `token` 字段读（`action`/`limit`/`since` 同样从 body 读）；access_token IP 白名单若开启需把调用方出口 IP 加白名单（当前关闭，无需配）。轮询去重用 `orders[].outTradeNo`，首启把现有单标记为已播报、之后只播新单。
+
+> 部署/访问这套环境的更多坑见记忆 `cetongju-cloud-deploy-access`。下面 `curl ... https://<HTTP触发器地址>` 的写法**仅当你另在腾讯云网页控制台配了 HTTP访问服务时**才适用；纯微信原生云开发用上面的 invokecloudfunction。
+
+## 机器人调用（参数与返回字段，两种传输通用）
+
+若已配 HTTP访问服务（否则参数同样适用于 invokecloudfunction 的 body）：
 
 ```bash
 curl -H "Authorization: Bearer $ADMIN_API_TOKEN" \
@@ -70,4 +85,6 @@ curl -H "Authorization: Bearer $ADMIN_API_TOKEN" \
 - `PAY_NOTIFY_WEBHOOK`: 完整 webhook URL（企业微信群机器人 / Server酱 / 任意 URL）。
 - `PAY_NOTIFY_TYPE`（可选）: `wecom` / `serverchan` / `text`。不填按 URL 域名自动识别（`qyapi.weixin.qq.com`→wecom，`ftqq.com`→serverchan，其它→text）。
 
-播报文本只露 openid 后 6 位，不泄露完整身份。轮询 `getRecentPaidOrders` 是退而求其次的对账手段，真·实时靠这个 webhook。
+播报文本只露 openid 后 6 位，不泄露完整身份。
+
+> 注：测瞳距实际采用 **Hermes 轮询 `getRecentPaidOrders`** 方案（见上文 invokecloudfunction），未启用本 webhook 播报；本节代码已就绪，供日后需要「推模式」时启用。
