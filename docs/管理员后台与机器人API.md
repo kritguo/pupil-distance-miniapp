@@ -22,20 +22,30 @@
 
 `measureEvents` 是新增表，只有上线新版本后完成的测量才会进入这张表，历史测量无法反推。
 
-## 外部调用方式（本环境 `cloud1-0gahgwwra45a0df3` = 微信原生云开发）
+## 外部调用方式（本环境 `cloud1-0gahgwwra45a0df3`）
 
-本环境在微信开发者工具的云开发控制台里**没有「HTTP访问服务」**，所以外部服务（如 Hermes 销售推送 Agent）**不走 HTTP 触发器 URL，走微信官方 `invokecloudfunction`**：
+### ✅ 主方案：HTTP 网关（URL + Bearer token，不碰 AppSecret）
 
-1. 拿 access_token（缓存 2 小时，过期再拿）：
-   `GET https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=<APPID>&secret=<AppSecret>`
-2. 调函数（参数放 body，名字与下文 query 参数一致）：
-   `POST https://api.weixin.qq.com/tcb/invokecloudfunction?access_token=<token>&env=cloud1-0gahgwwra45a0df3&name=adminStats`
-   body：`{"action":"getRecentPaidOrders","limit":50,"token":"<ADMIN_API_TOKEN>"}`
-3. 返回 `{"errcode":0,"resp_data":"<JSON字符串>"}`，把 `resp_data` 再 `JSON.parse` 得到 `{ok:true,orders:[...]}`。
+外部服务（如 Hermes 销售推送 Agent）直接请求公网地址即可，**最干净、无需 AppSecret/access_token**：
 
-要点：鉴权 token 从 body 的 `token` 字段读（`action`/`limit`/`since` 同样从 body 读）；access_token IP 白名单若开启需把调用方出口 IP 加白名单（当前关闭，无需配）。轮询去重用 `orders[].outTradeNo`，首启把现有单标记为已播报、之后只播新单。
+```
+GET https://cloud1-0gahgwwra45a0df3-1394475227.ap-shanghai.app.tcloudbase.com/adminStats?action=getRecentPaidOrders&limit=50
+Header: Authorization: Bearer <ADMIN_API_TOKEN>
+```
 
-> 部署/访问这套环境的更多坑见记忆 `cetongju-cloud-deploy-access`。下面 `curl ... https://<HTTP触发器地址>` 的写法**仅当你另在腾讯云网页控制台配了 HTTP访问服务时**才适用；纯微信原生云开发用上面的 invokecloudfunction。
+返回直接就是 `{ok:true, orders:[...]}`，不用解析 `resp_data`。`stats` 同理（`?action=stats&days=7`）。
+
+配置位置（**不在微信开发者工具里，在腾讯云网页控制台**）：`console.cloud.tencent.com/tcb`（用小程序管理员微信扫码登录）→ 选环境 → 「**HTTP 网关**」→ 顶部总开关必须**打开** → 「路由管理」里有 `/adminStats` → 云函数 `adminStats`（已配好）。总开关一旦关闭，这个 URL 立即失效。
+
+> 安全：地址公网可达，唯一防线是 `ADMIN_API_TOKEN`（函数内 `authorizeAdminRequest` 校验）；不带/带错 token 返 `UNAUTHORIZED`。网关层「身份认证」可不开，靠函数自己的 token。
+
+### 备选方案：官方 `invokecloudfunction`（HTTP 网关被关时的兜底，需 AppSecret）
+
+1. 拿 access_token：`GET https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=<APPID>&secret=<AppSecret>`
+2. `POST https://api.weixin.qq.com/tcb/invokecloudfunction?access_token=<token>&env=cloud1-0gahgwwra45a0df3&name=adminStats`，body：`{"action":"getRecentPaidOrders","limit":50,"token":"<ADMIN_API_TOKEN>"}`
+3. 返回 `{"errcode":0,"resp_data":"<JSON字符串>"}`，把 `resp_data` 再 `JSON.parse`。
+
+> 这套需要 AppSecret（总钥匙），权限过大，**能用主方案就别用这个**。鉴权 token 从 body 的 `token` 字段读。部署/访问这套环境的更多坑见记忆 `cetongju-cloud-deploy-access`。
 
 ## 机器人调用（参数与返回字段，两种传输通用）
 
