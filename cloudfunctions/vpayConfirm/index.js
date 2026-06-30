@@ -23,7 +23,9 @@ const {
   resolveTargetOpenid,
   deliverPayNotify,
   selectRepairDeliveryOrders,
-  shouldNotifyDelivery
+  shouldNotifyDelivery,
+  normalizeConfigValue,
+  buildAccessTokenUrl
 } = require('./helpers.js')
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
@@ -154,9 +156,9 @@ const deriveEntitlement = (user, now) => {
 }
 
 const getConfig = () => {
-  const APP_KEY = process.env.VPAY_APP_KEY
-  const APP_SECRET = process.env.WX_APP_SECRET
-  const ENV_RAW = process.env.VPAY_ENV
+  const APP_KEY = normalizeConfigValue(process.env.VPAY_APP_KEY)
+  const APP_SECRET = normalizeConfigValue(process.env.WX_APP_SECRET)
+  const ENV_RAW = normalizeConfigValue(process.env.VPAY_ENV)
   const ENV_FLAG = Number(ENV_RAW)
   if (!APP_KEY || !APP_SECRET || !/^[01]$/.test(String(ENV_RAW))) {
     const err = new Error('环境变量未配置或不合法(VPAY_APP_KEY/WX_APP_SECRET/VPAY_ENV)')
@@ -167,9 +169,7 @@ const getConfig = () => {
 }
 
 async function getAccessToken(appid, APP_SECRET) {
-  const tk = await httpGet(
-    `https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=${appid}&secret=${APP_SECRET}`
-  )
+  const tk = await httpGet(buildAccessTokenUrl(appid, APP_SECRET))
   const token = tk && tk.access_token
   if (!token) {
     const err = new Error('NO_TOKEN')
@@ -303,7 +303,7 @@ async function repairDeliveries({ db, appid, APP_KEY, APP_SECRET, ENV_FLAG, scan
 exports.main = async (event) => {
   const wxContext = cloud.getWXContext()
   const callerOpenid = wxContext.OPENID
-  const appid = wxContext.APPID || process.env.WX_APP_ID
+  const appid = normalizeConfigValue(wxContext.APPID) || normalizeConfigValue(process.env.WX_APP_ID)
   const now = Date.now()
   const action = event && event.action
 

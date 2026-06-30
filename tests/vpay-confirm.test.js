@@ -2,6 +2,8 @@ const test = require('node:test')
 const assert = require('node:assert/strict')
 
 const {
+  normalizeConfigValue,
+  buildAccessTokenUrl,
   getQueryStatus,
   getQueryTransactionId,
   isDeliverySuccess,
@@ -17,6 +19,15 @@ const {
   shouldRepairDeliveryOrder,
   isRepairAdmin
 } = require('../cloudfunctions/vpayConfirm/helpers.js')
+
+test('vpayConfirm trims config values and encodes access_token url params', () => {
+  assert.equal(normalizeConfigValue('  abc  '), 'abc')
+  const url = buildAccessTokenUrl('wx app', 'secret+value')
+  assert.match(url, /^https:\/\/api\.weixin\.qq\.com\/cgi-bin\/token\?/)
+  assert.match(url, /grant_type=client_credential/)
+  assert.match(url, /appid=wx\+app/)
+  assert.match(url, /secret=secret%2Bvalue/)
+})
 
 test('parses query_order status from supported response shapes', () => {
   assert.equal(getQueryStatus({ status: 2 }), 2)
@@ -96,6 +107,7 @@ test('resolves repair openid from order while rejecting cross-user caller', () =
 
 test('extracts wechat transaction id from query_order shapes, empty when absent', () => {
   assert.equal(getQueryTransactionId({ order_info: { wx_payment_order_id: 'wx123' } }), 'wx123')
+  assert.equal(getQueryTransactionId({ order: { wxpay_order_id: 'wxpay123' } }), 'wxpay123')
   assert.equal(getQueryTransactionId({ order: { transaction_id: 'tx456' } }), 'tx456')
   assert.equal(getQueryTransactionId({ wx_payment_order_id: 'top789' }), 'top789')
   assert.equal(getQueryTransactionId({ status: 2 }), '')

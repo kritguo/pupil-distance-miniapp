@@ -1,5 +1,16 @@
 const crypto = require('crypto')
 
+const normalizeConfigValue = (value) => String(value || '').trim()
+
+const buildAccessTokenUrl = (appid, secret) => {
+  const params = new URLSearchParams({
+    grant_type: 'client_credential',
+    appid: normalizeConfigValue(appid),
+    secret: normalizeConfigValue(secret)
+  })
+  return 'https://api.weixin.qq.com/cgi-bin/token?' + params.toString()
+}
+
 const getQueryStatus = (queryRes) => {
   const raw =
     (queryRes && queryRes.status) ||
@@ -80,10 +91,13 @@ const getQueryTransactionId = (queryRes) => {
     (queryRes && queryRes.order_info) || (queryRes && queryRes.order) || queryRes || {}
   const raw =
     info.wx_payment_order_id ||
+    info.wxpay_order_id ||
     info.transaction_id ||
     info.wx_order_id ||
+    info.channel_order_id ||
     (queryRes && queryRes.transaction_id) ||
     (queryRes && queryRes.wx_payment_order_id) ||
+    (queryRes && queryRes.wxpay_order_id) ||
     ''
   return raw ? String(raw) : ''
 }
@@ -167,6 +181,8 @@ const deliverPayNotify = async ({ env, order, post }) => {
 }
 
 module.exports = {
+  normalizeConfigValue,
+  buildAccessTokenUrl,
   getQueryStatus,
   getQueryTransactionId,
   isDeliverySuccess,

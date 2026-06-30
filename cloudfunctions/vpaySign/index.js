@@ -6,11 +6,19 @@
 //   VPAY_APP_KEY   虚拟支付 appKey(基本配置,分沙箱/现网,先用沙箱)
 //   VPAY_OFFER_ID  虚拟支付二级商户号 offerId
 //   WX_APP_SECRET  小程序 AppSecret(用 code 换 sessionKey)
-//   VPAY_ENV       1=沙箱 / 0=现网(iOS 强制 0)。不配默认 1(沙箱)
+//   VPAY_ENV       1=沙箱 / 0=现网(iOS 强制 0)。上线前必须显式配置。
+//   WX_APP_ID      可选兜底。云函数上下文没有 APPID 时使用。
 
 const cloud = require('wx-server-sdk')
 const crypto = require('crypto')
 const https = require('https')
+const {
+  normalizeConfigValue,
+  resolveAppid,
+  readConfigStatus,
+  buildJscode2SessionUrl,
+  buildSessionFailResponse
+} = require('./helpers.js')
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 
@@ -23,12 +31,41 @@ const PRODUCTS = {
 const hmacHex = (key, data) =>
   crypto.createHmac('sha256', key).update(data, 'utf8').digest('hex')
 
+const VPAY_SIGN_BUILD = '2026-06-30-session-diagnostics-v2'
+
+const httpGetText = (url) =>
+  new Promise((resolve, reject) => {
+    const req = https.get(url, (res) => {
+      let buf = ''
+      res.on('data', (c) => (buf += c))
+      res.on('end', () => resolve(buf))
+    })
+    req.setTimeout(2500, () => req.destroy(new Error('TIMEOUT')))
+    req.on('error', reject)
+  })
+
+async function fetchEgressIp() {
+  const urls = [
+    'https://api.ipify.org?format=json',
+    'https://checkip.amazonaws.com'
+  ]
+  for (const url of urls) {
+    try {
+      const text = await httpGetText(url)
+      const json = text && text.trim().startsWith('{') ? JSON.parse(text) : null
+      const ip = (json && json.ip) || String(text || '').trim()
+      if (/^[0-9a-fA-F:.]+$/.test(ip)) return ip
+    } catch (e) {
+      // try next endpoint
+    }
+  }
+  return ''
+}
+
 // wx.login 的 code 换 openid + session_key
 const jscode2session = (appid, secret, code) =>
   new Promise((resolve, reject) => {
-    const url =
-      'https://api.weixin.qq.com/sns/jscode2session' +
-      `?appid=${appid}&secret=${secret}&js_code=${code}&grant_type=authorization_code`
+    const url = buildJscode2SessionUrl(appid, secret, code)
     https
       .get(url, (res) => {
         let buf = ''
@@ -52,9 +89,25 @@ const genOutTradeNo = (openid) => {
 
 exports.main = async (event) => {
   const wxContext = cloud.getWXContext()
+  const action = event && event.action
+  if (action === 'diagnose') {
+    const egressIp = await fetchEgressIp()
+    return {
+      ok: true,
+      code: 'VPAY_SIGN_DIAGNOSE',
+      build: VPAY_SIGN_BUILD,
+      serverTime: Date.now(),
+      cloudEnv: wxContext.ENV || '',
+      openidPresent: !!wxContext.OPENID,
+      egressIp,
+      ...readConfigStatus(process.env, wxContext)
+    }
+  }
+
   const openid = wxContext.OPENID
-  const appid = wxContext.APPID
+  const appid = resolveAppid(wxContext, process.env)
   if (!openid) return { ok: false, code: 'NO_OPENID' }
+  if (!appid) return { ok: false, code: 'NO_APPID', message: '缺少小程序 AppID' }
 
   const plan = event && event.plan
   const product = PRODUCTS[plan]
@@ -63,12 +116,13 @@ exports.main = async (event) => {
   const code = event && event.code
   if (!code) return { ok: false, code: 'NO_CODE', message: '缺少登录 code' }
 
-  const APP_KEY = process.env.VPAY_APP_KEY
-  const APP_SECRET = process.env.WX_APP_SECRET
-  const OFFER_ID = process.env.VPAY_OFFER_ID
-  const ENV_FLAG = process.env.VPAY_ENV ? Number(process.env.VPAY_ENV) : 1
-  if (!APP_KEY || !APP_SECRET || !OFFER_ID) {
-    return { ok: false, code: 'NO_CONFIG', message: '云函数环境变量未配置(VPAY_APP_KEY/WX_APP_SECRET/VPAY_OFFER_ID)' }
+  const APP_KEY = normalizeConfigValue(process.env.VPAY_APP_KEY)
+  const APP_SECRET = normalizeConfigValue(process.env.WX_APP_SECRET)
+  const OFFER_ID = normalizeConfigValue(process.env.VPAY_OFFER_ID)
+  const ENV_RAW = normalizeConfigValue(process.env.VPAY_ENV)
+  const ENV_FLAG = Number(ENV_RAW)
+  if (!APP_KEY || !APP_SECRET || !OFFER_ID || !/^[01]$/.test(String(ENV_RAW))) {
+    return { ok: false, code: 'NO_CONFIG', message: '云函数环境变量未配置或不合法(VPAY_APP_KEY/WX_APP_SECRET/VPAY_OFFER_ID/VPAY_ENV)' }
   }
 
   // 1) 换 sessionKey
@@ -76,10 +130,12 @@ exports.main = async (event) => {
   try {
     sess = await jscode2session(appid, APP_SECRET, code)
   } catch (e) {
-    return { ok: false, code: 'SESSION_FAIL', message: '' + e }
+    return { ok: false, code: 'SESSION_FAIL', message: '微信登录态换取请求失败：' + e }
   }
   if (!sess || !sess.session_key) {
-    return { ok: false, code: 'SESSION_FAIL', detail: sess }
+    const out = buildSessionFailResponse(sess)
+    console.warn('[vpaySign] jscode2session failed:', out.sessionErrcode, out.sessionErrmsg)
+    return out
   }
   const sessionKey = sess.session_key
 
