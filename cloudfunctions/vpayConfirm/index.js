@@ -303,6 +303,7 @@ async function repairDeliveries({ db, appid, APP_KEY, APP_SECRET, ENV_FLAG, scan
 exports.main = async (event) => {
   const wxContext = cloud.getWXContext()
   const callerOpenid = wxContext.OPENID
+  const callerUnionid = wxContext.UNIONID || '' // 绑定开放平台后才有；App 权益桥按 unionid 找人
   const appid = normalizeConfigValue(wxContext.APPID) || normalizeConfigValue(process.env.WX_APP_ID)
   const now = Date.now()
   const action = event && event.action
@@ -407,6 +408,9 @@ exports.main = async (event) => {
         .catch(() => null)
       const user = userRes && userRes.data
       const granted = applyGrant(user, grant, now)
+      // App 权益桥：只在「本人付款」时落 unionid，避免管理员补单把别人的 unionid 写进目标用户
+      const unionidPatch =
+        callerUnionid && callerOpenid === targetOpenid ? { unionid: callerUnionid } : {}
 
       if (user) {
         await transaction.collection('users').doc(targetOpenid).update({
@@ -414,6 +418,7 @@ exports.main = async (event) => {
             remainCount: granted.remainCount,
             totalSinglePurchased: granted.totalSinglePurchased,
             annualExpireAt: granted.annualExpireAt,
+            ...unionidPatch,
             updateTime: db.serverDate()
           }
         })
@@ -425,6 +430,7 @@ exports.main = async (event) => {
             totalSinglePurchased: granted.totalSinglePurchased,
             annualExpireAt: granted.annualExpireAt,
             consumedResults: [],
+            ...unionidPatch,
             createTime: db.serverDate(),
             updateTime: db.serverDate()
           }

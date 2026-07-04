@@ -1,0 +1,7 @@
+{
+  "runtime": "Nodejs16.13",
+  "installDependency": true,
+  "permissions": {
+    "openapi": []
+  }
+}

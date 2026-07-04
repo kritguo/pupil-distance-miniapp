@@ -10,7 +10,7 @@ Last updated: 2026-07-04
 - 新增/删除页面、云函数、数据集合、云托管接口 → 必须更新本文件。
 - 改变用户可见行为 → 必须更新对应模块 DTR（`docs/dtr/DTR-XX-*.md`）。
 - 修复历史 bug → 在「历史 bug/回归点」登记状态与回归测试。
-- 改完跑 `npm test`（127 个测试，基线全绿，2026-07-05 核实）。
+- 改完跑 `npm test`（133 个测试，基线全绿，2026-07-05 核实）。
 
 ## 1. 页面 / 路由（app.json 注册，7 个）
 
@@ -33,7 +33,7 @@ Last updated: 2026-07-04
 | `POST /v1/measure` | 虹膜比例尺瞳距测量（普通模式）+ 距离/入框低档质量门控 + 卡片精确校验（精确模式，precision_pd.py） | `pages/measure/measure.js`（container 模式走云存储中转，http 模式直传 base64） |
 | `GET /health` | 预热/健康检查（进测量页即预热，规避冷启动） | `measure.js warmUpService()` |
 
-### 2.2 云函数（cloudfunctions/，7 个）
+### 2.2 云函数（cloudfunctions/，8 个）
 
 | 云函数 | 用途 | 调用方 | 读写集合 |
 |---|---|---|---|
@@ -44,6 +44,7 @@ Last updated: 2026-07-04
 | `vpayConfirm` | 查单确权、发放权益、补单、首次付费实时播报(webhook)、落库 transactionId | `utils/pay.js`、`pages/admin`(补单) | orders + users (读写) |
 | `logMeasureEvent` | 测量会话埋点 | `utils/measure_log.js` | measureEvents (写) |
 | `adminStats` | 管理员统计/身份判定/订单明细(`getRecentPaidOrders`) | `pages/admin`、`pages/mine`、机器人 | users/orders/measureEvents (读) |
+| `appBridge` | App 权益桥：App 微信登录换权益、核销免费深度测量（unionid，HTTP 网关 /appBridge） | PDgo iOS App | users (读写) |
 
 > 已退役：`detectCard`（v2 卡片定位）于 2026-06-10 删除，功能由云托管 `precision_pd.py` 取代。详见 `docs/dtr/DTR_COVERAGE.md` MOD-99。
 
@@ -67,7 +68,7 @@ Last updated: 2026-07-04
 
 | 存储 | 位置 | 关键字段/键 |
 |---|---|---|
-| `users` 集合 | 云数据库 | status / remainCount / retestCredits / annualExpireAt（权益真值） |
+| `users` 集合 | 云数据库 | status / remainCount / retestCredits / annualExpireAt（权益真值）/ unionid（App桥）/ appRedeems（App核销幂等） |
 | `orders` 集合 | 云数据库 | 虚拟支付订单 |
 | `measureEvents` 集合 | 云数据库 | 测量会话埋点 |
 | 本地 Storage | 小程序端 | `pd_user_info`（权益缓存+批次+记录）、`latestResult`、`pd_face_consent`、`pd_measure_mode_intro_seen` |
@@ -78,6 +79,7 @@ Last updated: 2026-07-04
 |---|---|---|---|
 | 支付确权链路 | `utils/pay.js`、`cloudfunctions/vpaySign`、`cloudfunctions/vpayConfirm` | 钱与权益发放 | 带回归证明的 bug 修复 |
 | 扣次幂等 | `cloudfunctions/consumeMeasure` | 不可重复扣费 | 同上（`tests/consume-measure.test.js` 护栏） |
+| App 核销 | `cloudfunctions/appBridge` | 扣免费额度/会员放行（钱相关） | 带回归证明的修复（tests/app-bridge.test.js 护栏） |
 | 价格口径 | 全局文案 | ¥9.9 = 一次测量（拍 3 张取中位数），不是"3 次包" | 文案改动需全局一致 |
 | 面部隐私 | `measure.js cleanupCloudFile` + 云端删图 + 首测同意弹窗 | 合规承诺「识别完即删」 | 不得削弱 |
 | dev 旁路 | `config.js dev.bypassPay` | 开着会绕过付费墙 | 上线前必须为 false |
@@ -89,5 +91,6 @@ Last updated: 2026-07-04
 | 结果页统计逻辑零测试 | closed (2026-06-10) | 已抽到 `utils/result_stats.js` + `utils/lens_advice.js`，新增 16 个测试（result-stats/lens-advice.test.js） |
 | 超 300 行文件 | open | `measure.js`(593，已从 714 减) `result.js`(556，已从 774 减) `vpayConfirm/index.js`(480，加了播报/流水号，近 500 红线，下次动它时把 httpPostJson 抽成独立 http 模块) `user.js`(388) `adminStats/helpers.js`(361，单一主题:统计/订单纯函数)。两个页面剩余均为页面级状态机+UI 处理，再拆收益递减 |
 | `detectCard` 无调用方 | closed (2026-06-10) | 已删除代码与部署配置；线上函数待控制台手动删除 |
+| App 权益桥休眠中 | open | appBridge 已就绪但未激活：等开放平台绑定+env+网关路由+App接入；激活前小程序/H5 文案不承诺同步（docs/App权益桥-unionid.md） |
 | `isNumber/roundToHalf` 三处重复定义 | open (减为 2 处) | result.js 已改用 pd.js 导出；user.js 仍有本地 isNumber |
 | 镜框推荐永不渲染（地图-代码漂移） | closed (2026-06-10) | 已下线死 UI（删卡片+`calcFrameRecommendation`+onCopy 段落）。脸宽字段保留在记录 schema；如需复活，云端 `main.py` 补人脸宽度输出即可，旧实现在 git 历史 |

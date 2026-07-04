@@ -32,6 +32,7 @@ const deriveEntitlement = (user, now) => {
 exports.main = async () => {
   const wxContext = cloud.getWXContext()
   const openid = wxContext.OPENID
+  const unionid = wxContext.UNIONID || ''
   const now = Date.now()
   if (!openid) {
     return { ok: false, code: 'NO_OPENID', serverTime: now }
@@ -41,6 +42,13 @@ exports.main = async () => {
   try {
     const res = await db.collection('users').doc(openid).get().catch(() => null)
     const user = res && res.data
+    // App 权益桥：小程序绑定微信开放平台后 wxContext 才有 UNIONID，
+    // 在这里懒回填到 users(App 端按 unionid 查权益)。失败不影响权益返回。
+    if (unionid && user && user.unionid !== unionid) {
+      await db.collection('users').doc(openid).update({
+        data: { unionid, updateTime: db.serverDate() }
+      }).catch(() => {})
+    }
     const ent = deriveEntitlement(user, now)
     return { ok: true, serverTime: now, ...ent }
   } catch (err) {
