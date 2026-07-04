@@ -171,6 +171,39 @@
       font-size: 13px;
       line-height: 1.5;
     }
+    .manual {
+      margin-top: 4px;
+      padding: 16px;
+      border: 1px solid #ffe0cf;
+      border-radius: 16px;
+      background: #fffaf6;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      text-align: center;
+    }
+    .manual[hidden] { display: none; }
+    .manual-title {
+      font-size: 15px;
+      font-weight: 800;
+      color: var(--ink);
+    }
+    .btn.ghost {
+      min-height: 46px;
+      border: 1px solid #ffc9ad;
+      background: #fff;
+      color: var(--orange-strong);
+      font-size: 15px;
+    }
+    .manual-tip {
+      color: var(--muted);
+      font-size: 12.5px;
+      line-height: 1.5;
+    }
+    .manual-or {
+      color: var(--muted);
+      font-size: 12.5px;
+    }
   </style>
 </head>
 <body>
@@ -223,6 +256,12 @@
         </wx-open-launch-app>
       </div>
       <div id="fallback" class="fallback">如果没有自动打开，也可到 App Store 搜索「PDgo 测瞳距」。</div>
+      <div id="manualPanel" class="manual" hidden>
+        <span class="manual-title">没有自动打开 App Store？</span>
+        <button id="copyBtn" class="btn ghost" type="button">复制链接，去 Safari 打开</button>
+        <span class="manual-tip" id="copyTip">复制后打开 Safari，粘贴到地址栏访问即可下载。</span>
+        <span class="manual-or" id="manualSearch">或打开 App Store 搜索「PDgo 测瞳距」。</span>
+      </div>
     </section>
   </main>
 
@@ -262,11 +301,58 @@
       document.getElementById('fallback').textContent = '如果没有自动打开，也可到 App Store 搜索「' + keyword + '」。';
 
       var storeBtn = document.getElementById('storeBtn');
-      if (pageConfig.appStoreUrl) {
-        storeBtn.href = pageConfig.appStoreUrl;
-      } else {
-        storeBtn.href = 'https://apps.apple.com/search?term=' + encodeURIComponent(keyword);
+      var storeUrl = pageConfig.appStoreUrl
+        || 'https://apps.apple.com/search?term=' + encodeURIComponent(keyword);
+      storeBtn.href = storeUrl;
+      document.getElementById('manualSearch').textContent = '或打开 App Store 搜索「' + keyword + '」。';
+
+      // 小程序 web-view 内跳外部域名可能被拦：点了 1.6 秒还没离开页面，就展开手动引导面板
+      // （小程序 web-view 没有「用浏览器打开」菜单，正确出路是复制链接去 Safari，或 App Store 搜索）。
+      var manualPanel = document.getElementById('manualPanel');
+      var jumpTimer = null;
+      storeBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        if (jumpTimer) clearTimeout(jumpTimer);
+        // itms-appss 协议在允许的环境直接拉起 App Store；被拦时静默留在本页 → 触发面板
+        window.location.href = storeUrl.replace(/^https?:\/\//, 'itms-appss://');
+        jumpTimer = setTimeout(function () {
+          if (document.visibilityState === 'visible') {
+            manualPanel.hidden = false;
+            document.getElementById('fallback').style.display = 'none';
+          }
+        }, 1600);
+      });
+      document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'hidden' && jumpTimer) {
+          clearTimeout(jumpTimer);
+          jumpTimer = null;
+        }
+      });
+
+      var copyBtn = document.getElementById('copyBtn');
+      var copyTip = document.getElementById('copyTip');
+      function markCopied() {
+        copyBtn.textContent = '已复制 ✓';
+        copyTip.textContent = '打开 Safari，粘贴到地址栏访问即可下载。';
       }
+      copyBtn.addEventListener('click', function () {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(storeUrl).then(markCopied, function () { legacyCopy(); });
+        } else {
+          legacyCopy();
+        }
+        function legacyCopy() {
+          var ta = document.createElement('textarea');
+          ta.value = storeUrl;
+          ta.setAttribute('readonly', '');
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          try { document.execCommand('copy'); markCopied(); } catch (err) {}
+          document.body.removeChild(ta);
+        }
+      });
 
       var launchApp = document.getElementById('launchApp');
       if (pageConfig.wxLaunchAppId && pageConfig.jsSdkConfigUrl && window.wx) {

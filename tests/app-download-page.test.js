@@ -80,6 +80,10 @@ test('web app download template keeps the App Store flow and optional open-app t
   assert.match(html, /App Store 搜索/)
   assert.match(html, /plan === 'annual'/)
   assert.doesNotMatch(html, /复制下载链接/)
+  // 跳转被拦时的手动引导：复制链接去 Safari + itms 协议尝试；小程序里没有"浏览器打开"菜单
+  assert.match(html, /复制链接，去 Safari 打开/)
+  assert.match(html, /itms-appss/)
+  assert.doesNotMatch(html, /右上角/)
   assert.match(readme, /业务域名/)
   assert.match(readme, /JS 接口安全域名/)
   assert.match(readme, /微信开放平台/)
