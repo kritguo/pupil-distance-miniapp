@@ -15,16 +15,6 @@ function resolveClientPlatform(systemInfo) {
   return 'other'
 }
 
-function hasRetestCredit(info) {
-  return !!(info && (info.retestCredits || 0) > 0)
-}
-
-function shouldPromptRetestChoice(info) {
-  if (!hasRetestCredit(info)) return false
-  if (info && info.status === 'unlimited') return false
-  return true
-}
-
 function buildMeasureUrl({ mode, forcePurchase } = {}) {
   const query = []
   if (mode) query.push(`mode=${encodeURIComponent(measureMode.normalizeMeasureMode(mode))}`)
@@ -34,7 +24,5 @@ function buildMeasureUrl({ mode, forcePurchase } = {}) {
 
 module.exports = {
   buildMeasureUrl,
-  hasRetestCredit,
-  resolveClientPlatform,
-  shouldPromptRetestChoice
+  resolveClientPlatform
 }
