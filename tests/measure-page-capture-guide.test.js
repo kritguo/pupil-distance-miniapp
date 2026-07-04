@@ -83,6 +83,42 @@ test('precision card issue stays as an in-page guide instead of a blocking modal
   }
 })
 
+test('precision quality issue stays in-page instead of the blocking quality modal', () => {
+  const originalWx = global.wx
+  let modalShown = false
+  global.wx = {
+    showModal() { modalShown = true }
+  }
+
+  try {
+    const pageConfig = loadMeasurePage()
+    const ctx = {
+      ...pageConfig,
+      data: { ...pageConfig.data, measureMode: 'precision', detecting: true, captureNotice: '' },
+      shotFailCount: 0,
+      setData(patch) {
+        Object.assign(this.data, patch)
+      },
+      handleMeasureFail() { throw new Error('quality issue must not become a hard failure') },
+      commitShot() { throw new Error('quality issue must not commit the shot') }
+    }
+
+    pageConfig.applyCloudPdResult.call(ctx, {
+      ok: true,
+      pd: { total: 62, left: 31, right: 31 },
+      card_cross_check: { found: true, diff_mm: 1 },
+      validation: { overall_valid: false, face_frontal: false }
+    })
+
+    assert.equal(modalShown, false)
+    assert.equal(ctx.data.detecting, false)
+    assert.match(ctx.data.captureNotice, /调整后再拍这一张/)
+    assert.equal(ctx.shotFailCount, 1)
+  } finally {
+    global.wx = originalWx
+  }
+})
+
 test('precision retest session replaces the previous paid batch before result page', () => {
   const originalWx = global.wx
   const storage = {

@@ -36,7 +36,7 @@ Last updated: 2026-07-04 (v22: iOS 精度复测改为 App 深度相机纯引导�
 | `UI-RESULT-PRECISION-INVITE` | UI | 付费后精度复测邀请 | `pages/result/result.wxml` | iOS 为 App 深度相机纯引导（不承诺免费/同步）；安卓/其他走卡片精度复测；标题按可信度分级加强；不再展示普通重测话术 |
 | `UI-APP-DOWNLOAD-WEBVIEW` | UI | App 下载 web-view | `pages/app-download/app-download.wxml` | 加载配置的 H5 下载页；未配置时显示搜索兜底 |
 | `UI-APP-DOWNLOAD-H5` | UI | H5 下载承接页 | `web/app-download/index.html` | 按 single/annual 显示权益，提供 App Store 下载，可选 wx-open-launch-app 打开已安装 App |
-| `ACT-INDEX-START` | action | 进入测量 | `pages/index/index.js onStart` | 复测额度时弹选择；iOS 分支：看看 App(下载页)/重新购买，不给免费普通重测（防「解锁→再赠→再免费」无限循环） |
+| `ACT-INDEX-START` | action | 进入测量 | `pages/index/index.js onStart` | 复测额度时安卓弹选择；iOS 不弹窗直接进普通测量（owner 决策：引导只留结果页小卡片），额度自动当一次免费普通复测 |
 | `ACT-INDEX-PRICING-DETAIL` | action | 查看结果解锁说明 | `pages/index/index.js onPricingDetail` | 打开底部抽屉说明单次/年度价格；不进入测量 |
 | `ACT-MEASURE-SHOT` | action | 拍一张并测量 | `pages/measure/measure.js takePhoto→preparePhoto` | 串 token 防并发/超时 |
 | `ACT-RESULT-PAY` | action | 确认支付 | `pages/result/result.js onPay` | plan: single/annual |
@@ -75,7 +75,7 @@ Last updated: 2026-07-04 (v22: iOS 精度复测改为 App 深度相机纯引导�
 | `RULE-MEASURE-CAPTURE-GUIDE` | rule | 拍照引导稳定显示 | `pages/measure/measure.*` | 快门上方常驻白色引导；拍完 1/2 张后不自动消失，直到下一次拍照或重拍；卡片精准测量顶部进度需下移避开微信胶囊；卡片未识别不弹阻断窗，改为页内提示；处理中统一说“正在分析，请稍候”，不向用户暴露上传/云端等技术词 |
 | `RULE-DEV-BYPASS-OFF` | rule | 上线 dev.bypassPay 必须 false | `config.js` | 否则绕过付费墙 |
 | `RULE-TRUST-EVIDENCE` | rule | 未付费：可信度与波动点阵形状可见；一切 PD 数值打码 | `result.wxml` | 给质量证据但不泄答案（PD 仅 50–80mm，露任何数位≈送答案） |
-| `TEST-SUITE` | test | `npm test`（123 用例） | `tests/*.test.js` | 2026-07-04 全绿 |
+| `TEST-SUITE` | test | `npm test`（127 用例） | `tests/*.test.js` | 2026-07-04 全绿 |
 | `TEST-CONSUME` | test | 扣次幂等回归 | `tests/consume-measure.test.js` | |
 | `TEST-VPAY-CONFIRM` | test | 确权回归 | `tests/vpay-confirm.test.js` | |
 | `TEST-MEASURE-PAGE` | test | 测量页精确/UI/请求/传输回归 | `tests/measure-page-*.test.js` `tests/measure-request.test.js` `tests/measure-transport.test.js` | 传输层含「用完即删」断言 |
@@ -185,9 +185,9 @@ FLOW-RETEST-GRANT
 - `RULE-ESCAPE-VALVE`：质量不达标自动打回；连续 ≥3 次允许「较低可信度」放行，可信度强制记「低」。
 - `RULE-PHOTO-DELETE` + `RULE-FACE-CONSENT`：合规承诺，不得削弱。微信端拍完后先压缩照片，再用云存储临时链接/HTTP base64 交给测量服务识别；云存储中转文件必须在识别完成或请求失效后删除，不留存原图。
 - `RULE-PRECISION-MODE-OFF`：普通/精确前置选择关闭；测量页不展示普通/精确模式选择、不展示模式弹层，首页默认进入普通拍照 3 连拍；安卓/其他通过精度复测进入时复用卡片拍照屏，顶部只显示“卡片精准测量”状态。
-- `RULE-PRECISION-RETEST`：精度复测是付费后邀请式入口，普通结果无论可信度高低都展示邀请卡（中/低时标题与按钮文案加强）。普通首测付费解锁后服务端赠送 1 次精度复测额度；精度复测结果仍为「中/低」继续赠送，直到测出「高」（对单次用户，精度「高」后邀请卡消失；会员始终可见）。邀请卡只显示当前已付权益的一张，不得做成单次/年度二选一。**安卓/其他**：小程序内用身份证/银行卡卡片辅助校验，显示「免费复测 1 次/会员不限次」，点击直接进卡片精准拍照页，不因额度云端同步慢或失败弹窗阻断（本地先保留 1 次额度，服务端在结果解锁时最终校验/扣减）。**iOS**：邀请卡为 PDgo App 深度相机**纯引导**（卖点=iPhone 深度相机更精准），点击直达 App 下载承接页，无额度前置校验、无阻断弹窗；unionid 权益桥建好前**不承诺免费或微信登录同步**（测试断言把关）；已发放的复测额度在 iOS 端休眠（首页弹窗只给「看看 App/重新购买」，不给免费普通重测——普通解锁会再次赠送额度，将形成无限免费循环）。
+- `RULE-PRECISION-RETEST`：精度复测是付费后邀请式入口，普通结果无论可信度高低都展示邀请卡（中/低时标题与按钮文案加强）。普通首测付费解锁后服务端赠送 1 次精度复测额度；精度复测结果仍为「中/低」继续赠送，直到测出「高」（对单次用户，精度「高」后邀请卡消失；会员始终可见）。邀请卡只显示当前已付权益的一张，不得做成单次/年度二选一。**安卓/其他**：小程序内用身份证/银行卡卡片辅助校验，显示「免费复测 1 次/会员不限次」，点击直接进卡片精准拍照页，不因额度云端同步慢或失败弹窗阻断（本地先保留 1 次额度，服务端在结果解锁时最终校验/扣减）。**iOS**：邀请卡为 PDgo App 深度相机**纯引导**（卖点=iPhone 深度相机更精准），点击直达 App 下载承接页，无额度前置校验、无阻断弹窗；unionid 权益桥建好前**不承诺免费或微信登录同步**（测试断言把关）。iOS 首页不拦截不弹窗：额度自动当一次免费普通复测；**防无限免费循环**——用复测额度解锁的普通结果不再续送（maybeGrantRetest 按 consume reason=retest_credit 拦截；精度结果不受限，中/低照常续送到高）。
 - `RULE-IOS-APP-DOWNLOAD`：iOS 不在小程序里直接跳 App Store；结果页按钮先进入 `PAGE-APP-DOWNLOAD`，由 web-view H5 承接“前往 App Store”和搜索兜底。H5 模板在 `web/app-download/index.html`，当前运行 URL 为 `https://cloudbase-4ghz65bm0b8770cd-1373927964.tcloudbaseapp.com/app-download/index.html`（已部署可访问）；正式目标 URL 为 `https://pdgoeye.com/app-download/index.html`，但 `pdgoeye.com` 需备案通过、DNS/HTTPS 生效并配置到小程序后台业务域名后才能切换。App Store 地址为 `https://apps.apple.com/cn/app/%E5%BF%AB%E9%80%9F%E6%B5%8B%E7%9E%B3%E8%B7%9Dpdgo/id6778687480`。若要在微信内网页直接打开已安装 App，还需按微信开放标签规则配置已认证服务号 JS 接口安全域名、开放平台移动应用绑定、App OpenSDK 与 JS-SDK 签名接口。
-- `RULE-MEASURE-CAPTURE-GUIDE`：快门上方常驻白色引导。未拍前显示“对准后点击拍照”；拍完第 1/2 张后显示“已拍 x/3，请继续拍下一张”，不做 2 秒后自动消失，也不再叠加底部“三张”说明。卡片精准测量顶部进度单独下移，不能贴近或压到微信胶囊区域；卡片未识别、边缘不清或卡片/虹膜差异过大时，先在快门上方给页内重拍提示，不弹大模态打断；处理中只给用户看“正在分析，请稍候”，不出现上传、云端识别等技术词。
+- `RULE-MEASURE-CAPTURE-GUIDE`：快门上方常驻白色引导。未拍前显示“对准后点击拍照”；拍完第 1/2 张后显示“已拍 x/3，请继续拍下一张”，不做 2 秒后自动消失，也不再叠加底部“三张”说明。卡片精准测量顶部进度单独下移，不能贴近或压到微信胶囊区域；卡片未识别、边缘不清或卡片/虹膜差异过大时，先在快门上方给页内重拍提示，不弹大模态打断；卡片模式下普通质量问题（脸不正/双眼不平等）前 2 次同样页内提示、第 3 次起才进逃生阀弹窗（保留「仍要使用」救济）；卡片连续 5 次未识别时提示可点左上角返回；处理中只给用户看“正在分析，请稍候”，不出现上传、云端识别等技术词。
 - `RULE-DEV-BYPASS-OFF`：上线前 `config.js dev.bypassPay` 必须为 false。
 
 ## 5. 数据映射（关键字段）
@@ -211,6 +211,6 @@ FLOW-RETEST-GRANT
 
 ## 7. 回归检查
 
-- `npm test`：123 用例全绿（基线 2026-07-04）。
+- `npm test`：127 用例全绿（基线 2026-07-05）。
 - 手动冒烟：未付费拍 3 张 → 出付费墙（默认 single，可 × 收起）→ 收起后见打码报告+吸底解锁栏 → 支付 → 解锁并入个人中心 → 出现精度复测邀请；iOS 进入 App 下载 web-view 页，安卓/其他进入卡片精度复测；精度结果中/低继续给免费精度复测，高则停止续发。
 - 改中位数/镜片规则 → 跑 `tests/result-stats.test.js` `tests/lens-advice.test.js`。

@@ -43,22 +43,10 @@ Page({
     const info = userUtil.getUserInfo()
     if (measureEntry.shouldPromptRetestChoice(info)) {
       const precisionRetestEnabled = measureModeUtil.isPrecisionRetestEnabled()
-      // iOS：精度复测的载体是 PDgo App(深度相机)，小程序内不提供卡片流程；
-      // 也不提供「免费普通重测」——普通解锁会再次赠送额度，会形成无限免费循环。
+      // iOS：不弹窗不拦截（owner 决策：引导只留结果页小卡片）。直接进普通测量，
+      // 复测额度自动当一次免费普通复测；结果页对额度买单的普通结果不再续送，防无限免费循环。
       if (precisionRetestEnabled && measureEntry.resolveClientPlatform() === 'ios') {
-        wx.showModal({
-          title: '想更精准？',
-          content: 'PDgo App 用 iPhone 深度相机测量，比照片测量更精准。如果现在就要在小程序里再测一组，需要重新购买。',
-          confirmText: '看看 App',
-          cancelText: '重新购买',
-          success: (res) => {
-            if (res.confirm) {
-              wx.navigateTo({ url: '/pages/app-download/app-download?plan=single&source=home_retest' })
-            } else {
-              this.goMeasure({ mode: 'normal', forcePurchase: true })
-            }
-          }
-        })
+        this.goMeasure()
         return
       }
       wx.showModal({

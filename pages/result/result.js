@@ -188,6 +188,7 @@ Page({
           return
         }
         if (out.ok && (out.consumed || out.reason === 'already_unlocked')) {
+          this.lastConsumeReason = out.reason || ''
           userUtil.setLastUnlockedResult(result.timestamp)
           userUtil.addSingleResult(result)
           this.setData({ isPaid: true, isUnlimited: false, showPayModal: false })
@@ -370,7 +371,8 @@ Page({
     const unlockKey = this.data.result && this.data.result.timestamp
     if (!unlockKey) return
 
-    pay.consume(unlockKey, { preferPaid: this.data.forcePurchase }).then(() => {
+    pay.consume(unlockKey, { preferPaid: this.data.forcePurchase }).then((out) => {
+      this.lastConsumeReason = (out && out.reason) || ''
       userUtil.setLastUnlockedResult(unlockKey)
       if (trialMode) {
         userUtil.resetTrialBatch()
@@ -490,6 +492,7 @@ Page({
 
   // 普通首测解锁后 → 赠送一次精度复测；精度复测仍中/低 → 继续发精度复测额度，直到测出「高」。
   // 年度会员本就不限次、从历史进入不发。
+  // 防无限免费循环：用「复测额度」解锁的普通结果不再续送（否则 免费测→再送→再免费测 永动）。
   maybeGrantRetest() {
     const { isUnlimited, fromRecord, result, displayResult } = this.data
     if (isUnlimited || fromRecord || !result || !result.timestamp) return
@@ -497,6 +500,7 @@ Page({
     const isPrecisionResult = isPrecisionMeasuredResult(result, primary)
     const conf = primary && primary.confidence
     if (isPrecisionResult && conf === '高') return
+    if (!isPrecisionResult && this.lastConsumeReason === 'retest_credit') return
     return pay.grantRetest(result.timestamp, isPrecisionResult ? 'precision_quality' : 'precision_invite').then((out) => {
       if (hasUsableRetestCredit(out)) {
         this.setData({ freeRetestReady: true })

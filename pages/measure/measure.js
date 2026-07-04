@@ -454,7 +454,15 @@ Page({
     if (qualityIssue) {
       this.shotFailCount = (this.shotFailCount || 0) + 1
       if (this.shotFailCount < ESCAPE_AFTER_FAILS) {
-        // 严格门控：自动打回重拍，不给放行
+        // 卡片模式：质量问题也走页内提示，不弹窗打断（与卡片识别失败一致，减少阻碍感）
+        if (this.data.measureMode === 'precision') {
+          this.setData({
+            detecting: false,
+            captureNotice: measureFeedback.buildPrecisionQualityNotice(qualityIssue)
+          })
+          return
+        }
+        // 普通模式严格门控：自动打回重拍，不给放行
         wx.showModal({
           title: '这张不达标',
           content: `${qualityIssue}\n请按提示调整后重拍这一张。`,

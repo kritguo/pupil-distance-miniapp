@@ -280,6 +280,51 @@ test('normal paid result gets a precision retest credit, precision high result d
   }
 })
 
+test('credit-funded normal unlock does not re-gift a credit (no infinite free loop)', async () => {
+  const pageConfig = loadResultPage()
+  const pay = require('../utils/pay.js')
+  const originalGrant = pay.grantRetest
+  let grantCalls = 0
+  pay.grantRetest = () => {
+    grantCalls += 1
+    return Promise.resolve({ ok: true, granted: true, retestCredits: 1 })
+  }
+
+  try {
+    // 普通结果 + 本次解锁是用复测额度买的单 → 不再续送
+    const creditFundedNormalCtx = {
+      ...pageConfig,
+      lastConsumeReason: 'retest_credit',
+      data: {
+        isUnlimited: false,
+        fromRecord: false,
+        result: { timestamp: 91, measureMode: 'normal' },
+        displayResult: { confidence: '高' }
+      },
+      setData() {}
+    }
+    await pageConfig.maybeGrantRetest.call(creditFundedNormalCtx)
+    assert.equal(grantCalls, 0)
+
+    // 精度结果哪怕也是额度买的单，中/低仍继续送（直到高）
+    const creditFundedPrecisionCtx = {
+      ...pageConfig,
+      lastConsumeReason: 'retest_credit',
+      data: {
+        isUnlimited: false,
+        fromRecord: false,
+        result: { timestamp: 92, measureMode: 'precision' },
+        displayResult: { confidence: '中', pdBasis: 'precision_far' }
+      },
+      setData() {}
+    }
+    await pageConfig.maybeGrantRetest.call(creditFundedPrecisionCtx)
+    assert.equal(grantCalls, 1)
+  } finally {
+    pay.grantRetest = originalGrant
+  }
+})
+
 test('ios precision invite opens app download page directly without credit gate or modal', () => {
   const pageConfig = loadResultPage()
   const pay = require('../utils/pay.js')
