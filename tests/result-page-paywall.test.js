@@ -325,6 +325,75 @@ test('credit-funded normal unlock does not re-gift a credit (no infinite free lo
   }
 })
 
+test('NO_QUOTA self-heals once: re-grant last unlocked result then retry consume', async () => {
+  const pageConfig = loadResultPage()
+  const pay = require('../utils/pay.js')
+  const originalWx = global.wx
+  const originalGrant = pay.grantRetest
+  const originalConsume = pay.consume
+  const storage = {
+    pd_user_info: {
+      status: 'single_used',
+      remainCount: 0,
+      retestCredits: 0,
+      annualExpireAt: 0,
+      lastUnlockedResultTs: 500,
+      records: [],
+      singleBatch: { id: 's', results: [] },
+      trialBatch: { id: 't', results: [] },
+      unlimitedSession: { id: 'u', results: [] }
+    }
+  }
+  global.wx = {
+    getStorageSync(key) { return storage[key] },
+    setStorageSync(key, value) { storage[key] = value },
+    showModal() { throw new Error('self-heal must not pop a modal') }
+  }
+  const grantCalls = []
+  pay.grantRetest = (key, reason) => {
+    grantCalls.push({ key, reason })
+    return Promise.resolve({ ok: true, granted: true, retestCredits: 1 })
+  }
+  const consumeCalls = []
+  pay.consume = (key) => {
+    consumeCalls.push(key)
+    return Promise.resolve({ ok: true, consumed: true, reason: 'retest_credit', retestCredits: 0 })
+  }
+
+  try {
+    const ctx = {
+      ...pageConfig,
+      data: {
+        ...pageConfig.data,
+        isUnlimited: false,
+        fromRecord: false,
+        result: { timestamp: 900, measureMode: 'precision' },
+        displayResult: { confidence: '高', pdBasis: 'precision_far' }
+      },
+      setData(patch) { Object.assign(this.data, patch) },
+      updateProgress() {},
+      saveRecord() {},
+      maybeGrantRetest() {}
+    }
+    await pageConfig.tryHealRetestCreditThenRetry.call(ctx, { ok: false, code: 'NO_QUOTA' })
+    assert.deepEqual(grantCalls, [{ key: 500, reason: 'precision_card_heal' }])
+    assert.deepEqual(consumeCalls, [900])
+    assert.equal(ctx.data.isPaid, true)
+    assert.equal(ctx.data.showPayModal, false)
+    assert.equal(ctx.retestHealTried, true)
+
+    // 已试过一次 → 不再自愈，出付费墙
+    const secondOut = await pageConfig.tryHealRetestCreditThenRetry.call(ctx, { ok: false, code: 'NO_QUOTA' })
+    assert.equal(secondOut, undefined)
+    assert.equal(grantCalls.length, 1)
+    assert.equal(ctx.data.showPayModal, true)
+  } finally {
+    pay.grantRetest = originalGrant
+    pay.consume = originalConsume
+    global.wx = originalWx
+  }
+})
+
 test('ios precision invite opens app download page directly without credit gate or modal', () => {
   const pageConfig = loadResultPage()
   const pay = require('../utils/pay.js')

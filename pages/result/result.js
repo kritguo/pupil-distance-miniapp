@@ -187,23 +187,54 @@ Page({
           if (localOk) { this.updateProgress(); this.saveRecord(); this.maybeGrantRetest() }
           return
         }
-        if (out.ok && (out.consumed || out.reason === 'already_unlocked')) {
-          this.lastConsumeReason = out.reason || ''
-          userUtil.setLastUnlockedResult(result.timestamp)
-          userUtil.addSingleResult(result)
-          this.setData({ isPaid: true, isUnlimited: false, showPayModal: false })
-          this.updateProgress()
-          this.saveRecord()   // 单次结果也存进个人中心
-          this.maybeGrantRetest()   // 普通首测发精度复测额度；精度复测中/低继续发
-        } else {
-          // 没有次数 / 未购买 -> 付费弹窗
-          this.setData({ isPaid: false, showPayModal: true })
-        }
+        if (this.applyConsumeOutcome(out)) return
+        // 没有次数：安卓卡片复测的额度是「本地保留+后台补发」，补发失败会走到这里。
+        // 先自愈一次（幂等补发+重试解锁），别让用户拍完 3 张才撞付费墙。
+        this.tryHealRetestCreditThenRetry(out)
       })
       return
     }
 
     this.setData({ isPaid: false, showPayModal: true })
+  },
+
+  // 服务端确认解锁后的统一落账：记录来源、入批次、刷新 UI、按规则续送额度
+  applyConsumeOutcome(out) {
+    if (!(out && out.ok && (out.consumed || out.reason === 'already_unlocked'))) return false
+    const { result } = this.data
+    this.lastConsumeReason = out.reason || ''
+    userUtil.setLastUnlockedResult(result.timestamp)
+    userUtil.addSingleResult(result)
+    this.setData({ isPaid: true, isUnlimited: false, showPayModal: false })
+    this.updateProgress()
+    this.saveRecord()   // 单次结果也存进个人中心
+    this.maybeGrantRetest()   // 普通首测发精度复测额度；精度复测中/低继续发
+    return true
+  },
+
+  // NO_QUOTA 自愈：为上一条已解锁结果幂等补发复测额度 → 重试解锁一次；仍失败才出付费墙。
+  tryHealRetestCreditThenRetry(out) {
+    const currentTs = this.data.result && this.data.result.timestamp
+    const lastUnlockedTs = userUtil.getUserInfo().lastUnlockedResultTs
+    const canHeal = !this.retestHealTried
+      && !!(out && out.code === 'NO_QUOTA')
+      && !!lastUnlockedTs
+      && lastUnlockedTs !== currentTs
+    if (!canHeal) {
+      this.setData({ isPaid: false, showPayModal: true })
+      return
+    }
+    this.retestHealTried = true
+    return pay.grantRetest(lastUnlockedTs, 'precision_card_heal').then((granted) => {
+      if (!hasUsableRetestCredit(granted)) {
+        this.setData({ isPaid: false, showPayModal: true })
+        return
+      }
+      return pay.consume(currentTs).then((retry) => {
+        if (this.applyConsumeOutcome(retry)) return
+        this.setData({ isPaid: false, showPayModal: true })
+      })
+    })
   },
 
   loadTrialSummary() {
