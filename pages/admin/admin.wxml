@@ -1,0 +1,69 @@
+<scroll-view class="page" scroll-y>
+  <view class="bg-glow"></view>
+  <view class="content">
+    <view class="head">
+      <view>
+        <text class="eyebrow">ADMIN</text>
+        <text class="title">管理员后台</text>
+      </view>
+      <button class="refresh-btn" bindtap="onRefresh">刷新</button>
+    </view>
+
+    <view class="state-card" wx:if="{{loading}}">
+      <text>正在读取统计...</text>
+    </view>
+
+    <view class="state-card error" wx:elif="{{error}}">
+      <text>{{error}}</text>
+    </view>
+
+    <block wx:else>
+      <view class="summary-grid">
+        <view class="stat-card" wx:for="{{summaryCards}}" wx:key="label">
+          <text class="stat-label">{{item.label}}</text>
+          <view class="stat-value-row">
+            <text class="stat-value">{{item.value}}</text>
+            <text class="stat-unit">{{item.unit}}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="u-card detail-card">
+        <text class="u-card-title">用户与订单</text>
+        <view class="metric-line">
+          <text class="metric-name">用户总数</text>
+          <text class="metric-value">{{totals.users}} 人</text>
+        </view>
+        <view class="metric-line">
+          <text class="metric-name">当前年度会员</text>
+          <text class="metric-value">{{totals.annualUsers}} 人</text>
+        </view>
+        <view class="metric-line">
+          <text class="metric-name">买过单次的人</text>
+          <text class="metric-value">{{totals.singlePurchasedUsers}} 人</text>
+        </view>
+        <view class="metric-line">
+          <text class="metric-name">近7天收入</text>
+          <text class="metric-value">{{totals.paidOrders}} 单 · {{totals.revenueYuan}} 元</text>
+        </view>
+        <view class="metric-line" wx:if="{{hasDeliveryPending}}">
+          <text class="metric-name">待补发货</text>
+          <text class="metric-value">{{totals.deliveryPending}} 单</text>
+        </view>
+        <button class="copy-btn repair-btn" wx:if="{{hasDeliveryPending}}" loading="{{repairing}}" bindtap="onRepairDeliveries">
+          {{repairing ? '正在补发货' : '一键补发货'}}
+        </button>
+        <text class="repair-text" wx:if="{{repairText}}">{{repairText}}</text>
+      </view>
+
+      <view class="u-card detail-card">
+        <text class="u-card-title">近 7 天趋势</text>
+        <view class="trend-row" wx:for="{{trend}}" wx:key="date">
+          <text class="trend-date">{{item.label}}</text>
+          <text class="trend-main">付款 {{item.paidUsers}}人</text>
+          <text class="trend-pay">{{item.revenueYuan}}元</text>
+        </view>
+      </view>
+    </block>
+  </view>
+</scroll-view>

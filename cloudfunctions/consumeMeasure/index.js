@@ -1,4 +1,5 @@
 const cloud = require('wx-server-sdk')
+const { chooseConsumeSource } = require('./helpers.js')
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 
@@ -16,7 +17,7 @@ const deriveEntitlement = (user, now) => {
 }
 
 // 单次套餐用户查看一条新结果时解锁。
-// 解锁顺序：免费补测额度 > 单次剩余次数。
+// 解锁顺序：免费精度复测额度 > 单次剩余次数。
 // 幂等：同一个 resultKey(结果时间戳) 只解锁一次，避免重复查看重复扣费、也避免本地清缓存白嫖。
 exports.main = async (event) => {
   const wxContext = cloud.getWXContext()
@@ -30,6 +31,7 @@ exports.main = async (event) => {
   if (!resultKey) {
     return { ok: false, code: 'NO_RESULT_KEY', serverTime: now }
   }
+  const preferPaid = !!(event && event.preferPaid)
 
   const db = cloud.database()
   try {
@@ -46,13 +48,26 @@ exports.main = async (event) => {
       }
       // 已经为这条结果解锁过 → 直接放行，不重复扣
       const consumed = (user && user.consumedResults) || []
-      if (consumed.indexOf(resultKey) !== -1) {
+      const alreadyUnlocked = consumed.indexOf(resultKey) !== -1
+      const source = chooseConsumeSource({
+        annualActive: ent.annualActive,
+        alreadyUnlocked,
+        retestCredits: ent.retestCredits,
+        remainCount: ent.remainCount,
+        preferPaid
+      })
+
+      if (source === 'already_unlocked') {
         outcome = { ok: true, consumed: false, reason: 'already_unlocked', ...ent }
         return
       }
-      // 优先使用免费补测额度（可信度中/低时发放，见 grantRetest）
+      if (source === 'annual') {
+        outcome = { ok: true, consumed: false, reason: 'annual', ...ent }
+        return
+      }
+      // 优先使用免费精度复测额度（普通解锁赠送；精度中/低续发，见 grantRetest）
       const creditFunded = (user && user.creditFundedResults) || []
-      if (ent.retestCredits > 0) {
+      if (source === 'retest') {
         const nextConsumed = consumed.concat([resultKey]).slice(-50)
         const nextCreditFunded = creditFunded.concat([resultKey]).slice(-50)
         const nextCredits = ent.retestCredits - 1
@@ -72,7 +87,7 @@ exports.main = async (event) => {
         return
       }
       // 还有剩余次数 → 扣 1
-      if (ent.remainCount > 0) {
+      if (source === 'paid') {
         const nextConsumed = consumed.concat([resultKey]).slice(-50)
         const nextRemain = ent.remainCount - 1
         await transaction.collection('users').doc(openid).update({

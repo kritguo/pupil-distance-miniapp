@@ -39,7 +39,16 @@ module.exports = {
     containerEnv: 'prod-d2gxdl8ua41461f9d',
     service: 'flask-cgpz',
     path: '/v1/measure',
-    // 上传压缩质量：调高让虹膜更清晰、直径测量更准（云存储中转无 100KB 限制，可放高）
-    quality: 90
+    // 上传压缩质量：前端会再做上限保护，避免真机大图上传卡住。
+    quality: 76
+  },
+  appDownload: {
+    // 小程序 web-view 下载页地址。当前先用已部署的 CloudBase 临时域名；
+    // pdgoeye.com 备案、DNS 和业务域名配置完成后，再切到 officialDownloadPageUrl。
+    downloadPageUrl: 'https://cloudbase-4ghz65bm0b8770cd-1373927964.tcloudbaseapp.com/app-download/index.html',
+    officialDownloadPageUrl: 'https://pdgoeye.com/app-download/index.html',
+    // iOS App Store 链接由下载页承接；小程序内仅作为兜底展示配置。
+    iosUrl: 'https://apps.apple.com/cn/app/%E5%BF%AB%E9%80%9F%E6%B5%8B%E7%9E%B3%E8%B7%9Dpdgo/id6778687480',
+    iosSearchKeyword: 'PDgo 测瞳距'
   }
 }

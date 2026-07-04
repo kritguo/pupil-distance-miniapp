@@ -81,49 +81,75 @@ page {
   color: var(--o2);
 }
 
-/* 可信度为「中」的免费重测提示 */
-.retest-tip {
+/* 结果后精度复测邀请 */
+.precision-invite {
   margin-top: 20rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 14rpx;
+  padding: 26rpx 28rpx;
+  background: #f5f8ff;
+  border: 2rpx solid #dce8ff;
+  border-radius: 24rpx;
+}
+.precision-invite.strong {
+  background: var(--conf-mid-b);
+  border-color: #ffd8bd;
+}
+.precision-invite-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20rpx;
-  padding: 24rpx 28rpx;
-  background: var(--conf-mid-b);
-  border-radius: 24rpx;
+  gap: 16rpx;
 }
-.retest-tip-body {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-}
-.retest-tip-title {
+.precision-invite-title {
   font-size: 27rpx;
   font-weight: 700;
-  color: var(--conf-mid-c);
+  color: var(--ink);
 }
-.retest-tip-desc {
-  margin-top: 6rpx;
-  font-size: 23rpx;
-  color: var(--conf-mid-c);
-  line-height: 1.4;
-}
-.retest-tip-btn {
+.precision-invite-tag {
   flex: 0 0 auto;
-  width: auto !important;
+  padding: 8rpx 16rpx;
+  border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--o-strong);
+  font-size: 23rpx;
+  font-weight: 700;
+}
+.precision-invite-tag.single {
+  background: #fff2ea;
+  color: var(--o-strong);
+}
+.precision-invite-tag.member {
+  background: #eaf7ef;
+  color: var(--conf-high-c);
+}
+.precision-invite-desc,
+.precision-invite-alert {
+  font-size: 26rpx;
+  color: var(--ink-2);
+  line-height: 1.5;
+}
+.precision-invite-alert {
+  color: var(--o-strong);
+  font-weight: 600;
+}
+.precision-invite-btn {
+  width: 100% !important;
+  height: 82rpx;
   margin: 0 !important;
-  height: 64rpx;
-  padding: 0 30rpx;
+  padding: 0 28rpx;
   display: flex;
   align-items: center;
   justify-content: center;
   background: linear-gradient(90deg, var(--o1), var(--o2));
   color: #fff;
-  font-size: 26rpx;
-  font-weight: 600;
+  font-size: 28rpx;
+  font-weight: 700;
   border-radius: 999rpx;
+  box-shadow: 0 12rpx 26rpx rgba(255, 94, 31, 0.22);
 }
-.retest-tip-btn::after { border: none; }
+.precision-invite-btn::after { border: none; }
 
 /* 主结果 */
 .hero {
@@ -545,6 +571,12 @@ page {
   font-size: 44rpx;
   color: var(--ink-3);
   line-height: 1;
+}
+.pay-modal-conf {
+  display: block;
+  margin-top: 10rpx;
+  font-size: 24rpx;
+  color: var(--ink-2);
 }
 .pay-plans {
   margin-top: 28rpx;

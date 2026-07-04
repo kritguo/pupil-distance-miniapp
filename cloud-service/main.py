@@ -18,6 +18,7 @@ import math
 import base64
 import logging
 import urllib.request
+import urllib.parse
 from typing import Optional, List, Tuple
 import cv2
 import numpy as np
@@ -25,6 +26,8 @@ import mediapipe as mp
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from precision_pd import calculate_precision_pd
+from image_sizing import get_resize_dimensions
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -54,6 +57,15 @@ EYE_ROTATION_OFFSET_MM = 13.5
 DEFAULT_SELFIE_DISTANCE_MM = 500.0
 # 近用瞳距的参考工作距离(mm)，配老花/阅读镜常用 40cm。
 NEAR_WORKING_DISTANCE_MM = 400.0
+MAX_IMAGE_BYTES = int(os.environ.get("MAX_IMAGE_BYTES", str(8 * 1024 * 1024)))
+MAX_MEASURE_IMAGE_SIDE = int(os.environ.get("MAX_MEASURE_IMAGE_SIDE", "1280"))
+# 微信端普通模式没有真实深度数据，只做保守的距离/入框合格判断，不把厘米数当事实。
+FACE_MARGIN_RATIO = 0.025
+FACE_TOO_CLOSE_WIDTH_RATIO = 0.82
+FACE_TOO_CLOSE_HEIGHT_RATIO = 0.86
+FACE_TOO_FAR_WIDTH_RATIO = 0.26
+IRIS_TOO_CLOSE_MIN_DIM_RATIO = 0.08
+IRIS_TOO_FAR_MIN_DIM_RATIO = 0.018
 
 # MediaPipe 虹膜关键点索引（refine_landmarks=True 时可用）
 LEFT_IRIS_CENTER = 468
@@ -72,6 +84,7 @@ class MeasureRequest(BaseModel):
     image_url: Optional[str] = None
     card_width_mm: float = 85.6
     camera_position: str = Field(default="unknown")
+    measure_mode: str = Field(default="normal")
     # 可选：客户端若能提供拍摄距离(mm)，远用换算会更准；否则用默认假设
     selfie_distance_mm: Optional[float] = None
 
@@ -94,6 +107,13 @@ class CardCrossCheck(BaseModel):
     diff_mm: Optional[float] = None
     width_px: float = 0.0
 
+class PrecisionResult(BaseModel):
+    applied: bool = False
+    reason: Optional[str] = None
+    diff_mm: Optional[float] = None
+    card_weight: float = 0.0
+    iris_weight: float = 0.0
+
 class QualityResult(BaseModel):
     score: float
     issues: List[str]
@@ -104,6 +124,8 @@ class ValidationResult(BaseModel):
     eyes_level: bool = False
     head_straight: bool = False        # 无明显偏头(yaw)
     iris_detected: bool = False
+    face_in_frame: bool = False
+    distance_suitable: bool = False
     pd_in_range: bool = False
     pd_symmetry: bool = False
     overall_valid: bool = False
@@ -115,12 +137,16 @@ class MetaResult(BaseModel):
 
 class MeasureResponse(BaseModel):
     ok: bool
-    method: str = "iris"               # iris | none
+    method: str = "iris"               # iris | precision_card_iris | none
     pd: Optional[PdResult] = None      # 主推荐（自拍距离测得，偏近用）
     pd_far: Optional[PdResult] = None  # 远用瞳距（参考）
     pd_near: Optional[PdResult] = None # 近用瞳距 40cm（参考）
+    pd_precision: Optional[PdResult] = None
+    pd_precision_far: Optional[PdResult] = None
+    pd_precision_near: Optional[PdResult] = None
     iris: Optional[IrisResult] = None
     card_cross_check: Optional[CardCrossCheck] = None
+    precision: Optional[PrecisionResult] = None
     meta: Optional[MetaResult] = None
     quality: Optional[QualityResult] = None
     validation: Optional[ValidationResult] = None
@@ -142,9 +168,20 @@ def decode_image(base64_str: str) -> Optional[np.ndarray]:
 def load_image_from_url(url: str) -> Optional[np.ndarray]:
     """从 URL(云存储临时链接)下载图片并解码。"""
     try:
+        parsed = urllib.parse.urlparse(url)
+        if parsed.scheme not in ("http", "https"):
+            logger.error("图片 URL 协议不允许: %s", parsed.scheme)
+            return None
         req = urllib.request.Request(url, headers={"User-Agent": "iris-service"})
         with urllib.request.urlopen(req, timeout=15) as resp:
-            img_data = resp.read()
+            content_length = resp.headers.get("Content-Length")
+            if content_length and int(content_length) > MAX_IMAGE_BYTES:
+                logger.error("图片过大: %s bytes", content_length)
+                return None
+            img_data = resp.read(MAX_IMAGE_BYTES + 1)
+            if len(img_data) > MAX_IMAGE_BYTES:
+                logger.error("图片读取超过大小限制: %s bytes", len(img_data))
+                return None
         nparr = np.frombuffer(img_data, np.uint8)
         return cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     except Exception as e:
@@ -158,6 +195,14 @@ def load_request_image(req: "MeasureRequest") -> Optional[np.ndarray]:
     if req.image_url:
         return load_image_from_url(req.image_url)
     return None
+
+def resize_for_measurement(image: np.ndarray) -> np.ndarray:
+    """保持比例缩小大图，降低 MediaPipe/OpenCV 超时风险；比例尺计算不受影响。"""
+    h, w = image.shape[:2]
+    new_w, new_h = get_resize_dimensions(w, h, MAX_MEASURE_IMAGE_SIDE)
+    if new_w == w and new_h == h:
+        return image
+    return cv2.resize(image, (new_w, new_h), interpolation=cv2.INTER_AREA)
 
 def distance(p1: dict, p2: dict) -> float:
     return math.hypot(p1["x"] - p2["x"], p1["y"] - p2["y"])
@@ -222,11 +267,23 @@ def detect_iris(image: np.ndarray) -> Optional[dict]:
         diam_vals = [d for d in (diam_left, diam_right) if d > 1]
         diam_avg = float(np.mean(diam_vals)) if diam_vals else 0.0
 
+        xs = [p.x * w for p in lm]
+        ys = [p.y * h for p in lm]
+        face_box = {
+            "min_x": float(min(xs)),
+            "max_x": float(max(xs)),
+            "min_y": float(min(ys)),
+            "max_y": float(max(ys)),
+            "width_px": float(max(xs) - min(xs)),
+            "height_px": float(max(ys) - min(ys)),
+        }
+
         return {
             "left": left,
             "right": right,
             "nose_x": nose["x"],
             "nose": nose,
+            "face_box": face_box,
             "diam_left_px": diam_left,
             "diam_right_px": diam_right,
             "diam_avg_px": diam_avg,
@@ -389,6 +446,39 @@ def validate(iris: dict, pd: dict, card_cross: Optional[dict], image_shape: tupl
     details["iris_diam_asym"] = round(diam_asym, 3)
 
     iris_detected = iris.get("diam_avg_px", 0) >= 4
+    face_box = iris.get("face_box") or {}
+    face_width = float(face_box.get("width_px", 0.0) or 0.0)
+    face_height = float(face_box.get("height_px", 0.0) or 0.0)
+    face_width_ratio = face_width / max(1.0, float(w))
+    face_height_ratio = face_height / max(1.0, float(h))
+    min_dim = max(1.0, float(min(w, h)))
+    iris_diam_ratio = iris.get("diam_avg_px", 0.0) / min_dim
+    margin_x = w * FACE_MARGIN_RATIO
+    margin_y = h * FACE_MARGIN_RATIO
+    face_in_frame = (
+        face_width > 1
+        and face_height > 1
+        and face_box.get("min_x", 0) > margin_x
+        and face_box.get("max_x", w) < w - margin_x
+        and face_box.get("min_y", 0) > margin_y
+        and face_box.get("max_y", h) < h - margin_y
+    )
+    too_close = (
+        face_width_ratio > FACE_TOO_CLOSE_WIDTH_RATIO
+        or face_height_ratio > FACE_TOO_CLOSE_HEIGHT_RATIO
+        or iris_diam_ratio > IRIS_TOO_CLOSE_MIN_DIM_RATIO
+    )
+    too_far = (
+        face_width_ratio < FACE_TOO_FAR_WIDTH_RATIO
+        or iris_diam_ratio < IRIS_TOO_FAR_MIN_DIM_RATIO
+    )
+    distance_suitable = face_in_frame and not too_close and not too_far
+    details["face_width_ratio"] = round(face_width_ratio, 3)
+    details["face_height_ratio"] = round(face_height_ratio, 3)
+    details["iris_diam_ratio"] = round(iris_diam_ratio, 3)
+    details["face_in_frame"] = face_in_frame
+    details["distance_status"] = "too_close" if too_close else ("too_far" if too_far else "ok")
+
     pd_in_range = 50 <= pd["total"] <= 80
     pd_symmetry = abs(pd["left"] - pd["right"]) < 6
     details["pd_total"] = pd["total"]
@@ -399,12 +489,15 @@ def validate(iris: dict, pd: dict, card_cross: Optional[dict], image_shape: tupl
         details["card_diff_mm"] = card_cross.get("diff_mm")
 
     overall_valid = (eyes_level and face_frontal and head_straight
-                     and iris_detected and pd_in_range and pd_symmetry)
+                     and iris_detected and face_in_frame and distance_suitable
+                     and pd_in_range and pd_symmetry)
     return {
         "face_frontal": face_frontal,
         "eyes_level": eyes_level,
         "head_straight": head_straight,
         "iris_detected": iris_detected,
+        "face_in_frame": face_in_frame,
+        "distance_suitable": distance_suitable,
         "pd_in_range": pd_in_range,
         "pd_symmetry": pd_symmetry,
         "overall_valid": overall_valid,
@@ -428,6 +521,8 @@ def assess_quality(iris: dict, validation: dict, card_cross: Optional[dict]) -> 
         ("eyes_level", "eyes_not_level", "请保持头部水平，双眼在同一水平线"),
         ("face_frontal", "face_not_frontal", "请正对镜头，不要偏头"),
         ("head_straight", "head_turned", "请正脸面向镜头，别侧头"),
+        ("face_in_frame", "face_not_in_frame", "请把完整脸部放进虚线框内"),
+        ("distance_suitable", "distance_not_suitable", "请保持手机约一臂距离，让脸部大小贴近引导框"),
         ("pd_in_range", "pd_out_of_range", "结果异常，请在光线充足处重拍"),
         ("pd_symmetry", "pd_asymmetric", "请正对镜头，鼻梁对准中线"),
     ]
@@ -454,7 +549,13 @@ def assess_quality(iris: dict, validation: dict, card_cross: Optional[dict]) -> 
 
 @app.get("/")
 async def root():
-    return {"service": "瞳距测量服务", "version": "3.0.0", "method": "iris-diameter", "status": "running"}
+    return {
+        "service": "瞳距测量服务",
+        "version": "3.0.0",
+        "method": "iris-diameter",
+        "max_measure_image_side": MAX_MEASURE_IMAGE_SIDE,
+        "status": "running",
+    }
 
 @app.get("/health")
 async def health():
@@ -466,6 +567,7 @@ async def measure(req: MeasureRequest):
         image = load_request_image(req)
         if image is None:
             return MeasureResponse(ok=False, method="none", message="图片解码失败或下载失败")
+        image = resize_for_measurement(image)
         h, w = image.shape[:2]
 
         iris = detect_iris(image)
@@ -480,12 +582,14 @@ async def measure(req: MeasureRequest):
                                    message="虹膜识别不清晰，请在光线充足处正对镜头重拍",
                                    meta=MetaResult(width=w, height=h))
 
-        # 卡片可选交叉校验（找不到不影响）
+        # 卡片可选交叉校验（普通模式找不到不影响；精确模式由前端按该字段要求重拍）
         card_cross = {"found": False, "total_pd": None, "diff_mm": None, "width_px": 0.0}
+        card_total_raw = None
         corners, card_conf, card_width_px = detect_card_opencv(image)
         if corners is not None:
             card_total = calculate_pd_card(iris, corners, req.card_width_mm)
             if card_total is not None:
+                card_total_raw = card_total
                 card_cross = {
                     "found": True,
                     "total_pd": round_half(card_total),
@@ -493,16 +597,28 @@ async def measure(req: MeasureRequest):
                     "width_px": card_width_px,
                 }
 
-        validation = validate(iris, pd, card_cross, image.shape)
+        precision_result = calculate_precision_pd(pd, card_total_raw)
+        use_precision = (req.measure_mode or "").lower() == "precision" and precision_result.get("ok")
+        primary_pd = precision_result["pd"] if use_precision else pd
+        method = precision_result.get("method") if use_precision else "iris"
+
+        validation = validate(iris, primary_pd, card_cross, image.shape)
         quality = assess_quality(iris, validation, card_cross)
-        far_pd, near_pd = convert_far_near(pd, req.selfie_distance_mm)
+        far_pd, near_pd = convert_far_near(primary_pd, req.selfie_distance_mm)
+
+        precision_far_pd, precision_near_pd = None, None
+        if precision_result.get("ok"):
+            precision_far_pd, precision_near_pd = convert_far_near(precision_result["pd"], req.selfie_distance_mm)
 
         return MeasureResponse(
             ok=True,
-            method="iris",
-            pd=PdResult(total=pd["total"], left=pd["left"], right=pd["right"]),
+            method=method,
+            pd=PdResult(total=primary_pd["total"], left=primary_pd["left"], right=primary_pd["right"]),
             pd_far=PdResult(**far_pd),
             pd_near=PdResult(**near_pd),
+            pd_precision=PdResult(**precision_result["pd"]) if precision_result.get("ok") else None,
+            pd_precision_far=PdResult(**precision_far_pd) if precision_far_pd else None,
+            pd_precision_near=PdResult(**precision_near_pd) if precision_near_pd else None,
             iris=IrisResult(
                 left=iris["left"],
                 right=iris["right"],
@@ -512,13 +628,20 @@ async def measure(req: MeasureRequest):
                 diameter_right_px=round(iris.get("diam_right_px", 0.0), 1),
             ),
             card_cross_check=CardCrossCheck(**card_cross),
+            precision=PrecisionResult(
+                applied=bool(use_precision),
+                reason=None if precision_result.get("ok") else precision_result.get("reason"),
+                diff_mm=precision_result.get("diff_mm"),
+                card_weight=precision_result.get("card_weight", 0.0),
+                iris_weight=precision_result.get("iris_weight", 0.0),
+            ),
             meta=MetaResult(width=w, height=h),
             quality=QualityResult(**quality),
             validation=ValidationResult(**validation),
         )
     except Exception as e:
         logger.exception("测量异常")
-        return MeasureResponse(ok=False, method="none", message=f"服务异常: {str(e)}")
+        return MeasureResponse(ok=False, method="none", message="测量服务暂时不可用，请稍后重试")
 
 
 if __name__ == "__main__":

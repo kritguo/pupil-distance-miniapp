@@ -27,6 +27,7 @@ function getUserInfo() {
   return info || {
     status: 'none',      // none | single | single_used | unlimited
     remainCount: 0,      // 剩余测量次数（单次用户用）
+    retestCredits: 0,    // 免费精度复测额度（单次用户复测用）
     annualExpireAt: 0,   // 年度会员到期时间戳(ms)，0 表示非年度会员
     records: [],         // 测量记录（年度会员用）
     lastUnlockedResultTs: null, // 单次用户已解锁的结果时间戳（本地去重，避免重复扣次）
@@ -101,6 +102,7 @@ function canMeasureFree() {
   const info = getUserInfo()
   if (isAnnualActive(info)) return true
   if (info.status === 'single' && info.remainCount > 0) return true
+  if ((info.retestCredits || 0) > 0) return true
   return false
 }
 
@@ -116,10 +118,12 @@ function shouldShowPayTip() {
   if (isAnnualActive(info)) return false
   // 有剩余次数不显示
   if (info.status === 'single' && info.remainCount > 0) return false
+  // 有免费精度复测额度不显示
+  if ((info.retestCredits || 0) > 0) return false
   return true
 }
 
-// 激活单次（¥9.9 = 一次测量；可信度中/低时另发免费补测，见 grantFreeRetest）
+// 激活单次（¥9.9 = 一次测量；普通首测解锁后另发精度复测额度）
 function activateSingle() {
   const info = getUserInfo()
   info.status = 'single'
@@ -339,6 +343,9 @@ function getStatusText() {
     case 'single':
       return `剩余 ${info.remainCount} 次`
     case 'single_used':
+      if ((info.retestCredits || 0) > 0) {
+        return `免费精度复测 ${info.retestCredits} 次`
+      }
       return '已用完'
     default:
       return '未激活'

@@ -134,7 +134,7 @@ const applyGrant = (user, grant, now) => {
     consumedResults: (user && user.consumedResults) || []
   }
   if (grant === 'single') {
-    // ¥9.9 = 一次测量（拍 3 张取中位数）。中/低可信度自动补测；高可信度但用户不认可时可手动补测一次。
+    // ¥9.9 = 一次测量（拍 3 张取中位数）。普通首测解锁后赠送一次精度复测，精度复测中/低继续赠送到高。
     next.remainCount += 1
     next.totalSinglePurchased += 1
   } else if (grant === 'annual') {

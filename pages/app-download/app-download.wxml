@@ -1,0 +1,17 @@
+<web-view wx:if="{{webUrl}}" src="{{webUrl}}"></web-view>
+
+<view wx:else class="download-page">
+  <view class="app-icon">PD</view>
+  <text class="badge">{{copy.badge}}</text>
+  <text class="title">{{copy.title}}</text>
+  <text class="desc">{{copy.desc}}</text>
+
+  <view class="steps">
+    <view class="step"><text class="dot"></text><text>下载 PDgo App</text></view>
+    <view class="step"><text class="dot"></text><text>打开 App 进入测量</text></view>
+    <view class="step"><text class="dot"></text><text>完成深度相机测量</text></view>
+  </view>
+
+  <button class="store-btn" bindtap="onAppStoreHelp">知道了</button>
+  <text class="fallback">如果没有自动打开，也可到 App Store 搜索「{{searchKeyword}}」。</text>
+</view>

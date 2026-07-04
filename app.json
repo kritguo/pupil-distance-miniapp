@@ -2,14 +2,21 @@
   "pages": [
     "pages/index/index",
     "pages/mine/mine",
+    "pages/admin/admin",
     "pages/measure/measure",
     "pages/result/result",
+    "pages/app-download/app-download",
     "pages/activate/activate"
   ],
   "window": {
     "navigationBarTextStyle": "black",
     "navigationBarTitleText": "快速测瞳距PDgo",
     "navigationBarBackgroundColor": "#ffffff"
+  },
+  "permission": {
+    "scope.camera": {
+      "desc": "用于拍摄正脸照片进行瞳距测量"
+    }
   },
   "tabBar": {
     "color": "#9498a3",

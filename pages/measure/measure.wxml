@@ -13,8 +13,9 @@
         <view class="btn-icon" bindtap="goBack">
           <text class="icon-arrow">‹</text>
         </view>
-        <view class="shot-progress">
-          <text class="shot-progress-text">第 {{shotIndex + 1}} / {{totalShots}} 张</text>
+        <view class="shot-progress {{measureMode === 'precision' ? 'precision' : ''}}">
+          <text wx:if="{{measureMode === 'precision'}}" class="mode-status">卡片精准测量</text>
+          <text class="shot-progress-text">第 {{shotIndex < totalShots ? shotIndex + 1 : totalShots}} / {{totalShots}} 张</text>
           <view class="shot-dots">
             <view class="shot-dot {{shotIndex >= 1 ? 'on' : ''}}"></view>
             <view class="shot-dot {{shotIndex >= 2 ? 'on' : ''}}"></view>
@@ -23,25 +24,31 @@
         </view>
         <view class="btn-icon-placeholder"></view>
       </view>
-      <!-- 摘镜提示 chip -->
-      <view class="glasses-chip">⚠️ 摘掉眼镜测得更准</view>
     </view>
 
     <!-- ===== 人脸引导框（含引导语，整体居中偏下，贴合手持时脸的位置） ===== -->
     <view class="face-guide">
       <view class="guide-text">
-        <view class="guide-main">把瞳孔对准两个圈、双眼对齐横线</view>
-        <view class="guide-sub">举到与眼睛同高 · 约一臂距离（约 50cm）</view>
+        <view class="guide-main">{{modeCopy.main}}</view>
+        <view class="guide-sub">{{modeCopy.sub}}</view>
       </view>
-      <view class="face-outline">
+      <view class="face-outline {{measureMode === 'precision' ? 'precision' : ''}}">
         <view class="eye-line"></view>
         <view class="eye-mark left"></view>
         <view class="eye-mark right"></view>
+        <view wx:if="{{precisionModeEnabled && measureMode === 'precision'}}" class="card-outline" style="{{precisionCardGuideStyle}}">
+          <view class="card-corner tl"></view>
+          <view class="card-corner tr"></view>
+          <view class="card-corner bl"></view>
+          <view class="card-corner br"></view>
+          <text class="card-label">卡片放这里</text>
+        </view>
       </view>
     </view>
 
     <!-- ===== 底部 ===== -->
     <view class="cap-bottom">
+      <view class="capture-guide">{{captureNotice || '对准后点击拍照'}}</view>
       <view class="capture-bottom">
         <view class="btn-round" bindtap="switchCamera">
           <text class="icon-switch">⟳</text>
@@ -53,7 +60,6 @@
           <text class="icon-help">?</text>
         </view>
       </view>
-      <view class="cap-sub">对准后点击快门拍摄，一次测量需拍 3 张</view>
     </view>
   </view>
 </view>

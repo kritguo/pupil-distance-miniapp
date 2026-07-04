@@ -1,0 +1,109 @@
+.download-page {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 96rpx 44rpx 56rpx;
+  background: #fffaf6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: #16191f;
+}
+
+.app-icon {
+  width: 132rpx;
+  height: 132rpx;
+  border-radius: 30rpx;
+  background: linear-gradient(135deg, #ff7b37, #ef3d13);
+  color: #fff;
+  font-size: 42rpx;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 18rpx 34rpx rgba(239, 62, 19, 0.22);
+}
+
+.badge {
+  margin-top: 34rpx;
+  padding: 10rpx 20rpx;
+  border-radius: 999rpx;
+  background: #fff0e8;
+  color: #ef5e1f;
+  font-size: 24rpx;
+  font-weight: 700;
+}
+
+.title {
+  margin-top: 28rpx;
+  font-size: 44rpx;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.desc {
+  margin-top: 18rpx;
+  max-width: 560rpx;
+  color: #6b7280;
+  font-size: 28rpx;
+  line-height: 1.55;
+  text-align: center;
+}
+
+.steps {
+  width: 100%;
+  margin-top: 58rpx;
+  padding: 30rpx 34rpx;
+  box-sizing: border-box;
+  border-radius: 24rpx;
+  background: #ffffff;
+  box-shadow: 0 10rpx 32rpx rgba(19, 24, 34, 0.06);
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  min-height: 56rpx;
+  color: #2a2f38;
+  font-size: 28rpx;
+  font-weight: 650;
+}
+
+.step + .step {
+  margin-top: 18rpx;
+}
+
+.dot {
+  width: 14rpx;
+  height: 14rpx;
+  border-radius: 50%;
+  background: #ef5e1f;
+  margin-right: 18rpx;
+  flex: 0 0 auto;
+}
+
+.store-btn {
+  width: 100%;
+  height: 96rpx;
+  margin-top: 62rpx;
+  border-radius: 999rpx;
+  background: linear-gradient(90deg, #ff7b37, #ef3d13);
+  color: #fff;
+  font-size: 32rpx;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 18rpx 40rpx rgba(239, 62, 19, 0.2);
+}
+
+.store-btn::after {
+  border: none;
+}
+
+.fallback {
+  margin-top: 24rpx;
+  color: #8a919e;
+  font-size: 24rpx;
+  line-height: 1.5;
+  text-align: center;
+}

@@ -26,6 +26,8 @@ RUN pip install --no-cache-dir -r requirements.txt \
 
 # 复制应用代码
 COPY main.py .
+COPY image_sizing.py .
+COPY precision_pd.py .
 
 # 暴露端口
 EXPOSE 8000

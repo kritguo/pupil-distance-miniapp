@@ -1,6 +1,6 @@
 // 支付与权益同步封装
 // 支付走「虚拟支付」：wx.login 拿 code → 云函数 vpaySign 签名 → wx.requestVirtualPayment 拉起。
-// 权益由发货回调云函数 vpayNotify 发放；前端支付成功后轮询 getEntitlement 同步。
+// 权益由 vpayConfirm 主动查单后发放；前端支付成功后同步 getEntitlement。
 // 权益真值在服务端，本地通过 userUtil.applyServerEntitlement 缓存。
 
 const userUtil = require('./user.js')
@@ -9,6 +9,30 @@ const userUtil = require('./user.js')
 const PLAN_LABELS = {
   single: '单次测量（拍 3 张取中位数）',
   annual: '年度会员（一年不限次）'
+}
+
+const CONFIRM_RETRY_DELAYS_MS = [800, 1500, 2500]
+const RETRYABLE_CONFIRM_CODES = {
+  NOT_PAID: true,
+  QUERY_FAIL: true,
+  NO_STATUS: true,
+  TOKEN_FAIL: true,
+  CONFIRM_FAIL: true
+}
+
+function shouldRetryConfirm(out, attempt) {
+  if (attempt >= CONFIRM_RETRY_DELAYS_MS.length) return false
+  if (!out) return true
+  if (out.ok && out.deliveryOk === false) return true
+  return !!(!out.ok && RETRYABLE_CONFIRM_CODES[out.code])
+}
+
+function buildVirtualPaymentFailMessage(err) {
+  const raw = (err && err.errMsg) || (err ? JSON.stringify(err) : '')
+  if (/App Store|暂无法完成充值|充值/i.test(raw)) {
+    return '支付未完成：App Store 暂无法完成充值。请检查 Apple ID 付款方式、App 内购买权限、微信/iOS 版本，关闭 VPN 后重试；也可以换一台 iPhone 或换 Apple ID 测试。'
+  }
+  return '支付未完成：' + (raw || '请稍后重试')
 }
 
 function ensureCloud() {
@@ -43,7 +67,7 @@ function syncEntitlement() {
 
 // 单次套餐用户查看一条新结果时扣 1 次（服务端幂等去重）
 // resultKey 用结果时间戳，确保同一结果不会重复扣费
-function consume(resultKey) {
+function consume(resultKey, options) {
   return new Promise((resolve) => {
     if (!ensureCloud() || !resultKey) {
       resolve(null)
@@ -51,7 +75,10 @@ function consume(resultKey) {
     }
     wx.cloud.callFunction({
       name: 'consumeMeasure',
-      data: { resultKey: String(resultKey) },
+      data: {
+        resultKey: String(resultKey),
+        preferPaid: !!(options && options.preferPaid)
+      },
       success: (res) => {
         const out = res && res.result
         if (out && out.ok) {
@@ -67,9 +94,9 @@ function consume(resultKey) {
   })
 }
 
-// 为某条「已解锁且可信度中/低」的结果申请免费补测额度（服务端幂等、只对已解锁结果发）
+// 为某条「已解锁」结果申请免费精度复测额度（服务端幂等、只对已解锁结果发）
 // 返回 { ok, granted, retestCredits } 或 null
-function grantRetest(resultKey) {
+function grantRetest(resultKey, reason) {
   return new Promise((resolve) => {
     if (!ensureCloud() || !resultKey) {
       resolve(null)
@@ -77,8 +104,14 @@ function grantRetest(resultKey) {
     }
     wx.cloud.callFunction({
       name: 'grantRetest',
-      data: { resultKey: String(resultKey) },
-      success: (res) => resolve((res && res.result) || null),
+      data: { resultKey: String(resultKey), reason: reason || 'quality' },
+      success: (res) => {
+        const out = (res && res.result) || null
+        if (out && out.ok) {
+          userUtil.applyServerEntitlement(out)
+        }
+        resolve(out)
+      },
       fail: (err) => {
         console.warn('[pay] grantRetest 失败:', err)
         resolve(null)
@@ -87,22 +120,36 @@ function grantRetest(resultKey) {
   })
 }
 
-// 支付成功后：调 vpayConfirm 主动查单发权益，再同步本地缓存
-function pollEntitlementAfterPay(outTradeNo, resolve) {
-  wx.showLoading({ title: '确认支付结果...', mask: true })
+function retryConfirmLater(outTradeNo, resolve, attempt) {
+  const delay = CONFIRM_RETRY_DELAYS_MS[attempt]
+  setTimeout(() => pollEntitlementAfterPay(outTradeNo, resolve, attempt + 1), delay)
+}
+
+// 支付成功后：调 vpayConfirm 主动查单发权益和确认发货，再同步本地缓存
+function pollEntitlementAfterPay(outTradeNo, resolve, attempt = 0) {
+  wx.showLoading({ title: attempt ? '确认发货中...' : '确认支付结果...', mask: true })
   wx.cloud.callFunction({
     name: 'vpayConfirm',
     data: { outTradeNo },
     success: (res) => {
       const out = res && res.result
       if (out && out.ok) userUtil.applyServerEntitlement(out)
+      if (shouldRetryConfirm(out, attempt)) {
+        retryConfirmLater(outTradeNo, resolve, attempt)
+        return
+      }
       syncEntitlement().then((ent) => {
         wx.hideLoading()
         const e = ent || out
         const granted = e && (e.status === 'unlimited' || e.remainCount > 0)
+        if (!granted && attempt < CONFIRM_RETRY_DELAYS_MS.length) {
+          wx.showLoading({ title: '同步权益中...', mask: true })
+          retryConfirmLater(outTradeNo, resolve, attempt)
+          return
+        }
         resolve(
           granted
-            ? { ok: true, ent: e, outTradeNo }
+            ? { ok: true, ent: e, outTradeNo, deliveryOk: !out || out.deliveryOk !== false }
             : {
                 ok: false,
                 code: 'GRANT_PENDING',
@@ -113,6 +160,11 @@ function pollEntitlementAfterPay(outTradeNo, resolve) {
       })
     },
     fail: () => {
+      const failed = { ok: false, code: 'CONFIRM_FAIL' }
+      if (shouldRetryConfirm(failed, attempt)) {
+        retryConfirmLater(outTradeNo, resolve, attempt)
+        return
+      }
       wx.hideLoading()
       resolve({ ok: false, code: 'CONFIRM_FAIL', message: '支付成功，权益确认失败，请稍后在「我的」重试' })
     }
@@ -166,7 +218,7 @@ function purchase(plan) {
                 resolve({
                   ok: false,
                   code: cancelled ? 'CANCELLED' : 'PAY_FAIL',
-                  message: cancelled ? '已取消支付' : '支付未完成：' + ((err && err.errMsg) || JSON.stringify(err))
+                  message: cancelled ? '已取消支付' : buildVirtualPaymentFailMessage(err)
                 })
               }
             })
@@ -188,5 +240,9 @@ module.exports = {
   syncEntitlement,
   consume,
   grantRetest,
-  purchase
+  purchase,
+  _test: {
+    shouldRetryConfirm,
+    buildVirtualPaymentFailMessage
+  }
 }

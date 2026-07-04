@@ -32,11 +32,12 @@
     <view class="u-card">
       <view class="row-between">
         <text class="u-card-title">结果可信度</text>
-        <text class="u-conf {{displayResult.confidence === '高' ? 'high' : (displayResult.confidence === '低' ? 'low' : 'mid')}}">{{isPaid ? displayResult.confidence : '••'}}</text>
+        <!-- 可信度不打码：这是付费决策最需要的质量证据 -->
+        <text class="u-conf {{displayResult.confidence === '高' ? 'high' : (displayResult.confidence === '低' ? 'low' : 'mid')}}">{{displayResult.confidence}}</text>
       </view>
 
-      <!-- 波动点阵图 -->
-      <view class="spread" wx:if="{{isPaid && spreadDots.length > 1}}">
+      <!-- 波动点阵图（形状对未付费可见作质量证据；点上的 PD 数值仅已付费可见） -->
+      <view class="spread" wx:if="{{spreadDots.length > 1}}">
         <view class="spread-head">
           <text class="spread-head-label">三张最大相差</text>
           <text class="spread-diff">{{spreadMaxDiff}} mm</text>
@@ -45,7 +46,7 @@
           <view class="spread-bar"></view>
           <view class="spread-dot {{item.hi ? 'hi' : ''}}" wx:for="{{spreadDots}}" wx:key="id" style="left:{{item.left}}%">
             <view class="spread-dot-pt"></view>
-            <text class="spread-dot-label">{{item.pd}}</text>
+            <text class="spread-dot-label" wx:if="{{isPaid}}">{{item.pd}}</text>
           </view>
         </view>
       </view>
@@ -53,13 +54,15 @@
       <text class="spread-warning" wx:if="{{isPaid && medianWarning}}">{{medianWarning}}</text>
     </view>
 
-    <!-- 可信度未达「高」：提示再测（单次用户可免费补测，直到测出「高」） -->
-    <view wx:if="{{isPaid && displayResult.confidence !== '高'}}" class="retest-tip">
-      <view class="retest-tip-body">
-        <text class="retest-tip-title">可信度未达「高」，建议再测一次</text>
-        <text class="retest-tip-desc">{{freeRetestReady ? '已为你开通免费补测，再测不额外收费，直到测出「高」为止。' : (isUnlimited ? '会员不限次，多测一次取中位数更准。' : '多拍一次、取中位数会更准。')}}</text>
+    <!-- 付费后统一邀请精度复测：iOS 去 App，安卓/其他走卡片校验 -->
+    <view wx:if="{{showPrecisionInvite}}" class="precision-invite {{displayResult.confidence !== '高' ? 'strong' : ''}}">
+      <view class="precision-invite-head">
+        <text class="precision-invite-title">{{precisionInvite.title}}</text>
+        <text class="precision-invite-tag {{precisionInvite.planType === 'annual' ? 'member' : 'single'}}">{{precisionInvite.planLabel}}</text>
       </view>
-      <button class="retest-tip-btn" bindtap="onRetake">{{freeRetestReady ? '免费再测' : '再测一次'}}</button>
+      <text class="precision-invite-desc">{{precisionInvite.desc}}</text>
+      <text wx:if="{{displayResult.confidence !== '高'}}" class="precision-invite-alert">本次可信度未达「高」，建议优先完成精度复测。</text>
+      <button class="precision-invite-btn" bindtap="onPrecisionRetest">{{retestRequesting ? '处理中...' : precisionInvite.buttonText}}</button>
     </view>
 
     <!-- 单眼瞳距 -->
@@ -124,17 +127,6 @@
         <text class="detail-idx">第 {{index + 1}} 张</text>
         <text class="detail-val {{!isPaid ? 'masked' : ''}}">{{isPaid ? item.totalPd : '••.•'}} mm</text>
       </view>
-    </view>
-
-    <!-- 镜框推荐 -->
-    <view class="u-card" wx:if="{{frameRecommendation && isPaid}}">
-      <text class="u-card-title">镜框推荐</text>
-      <view class="kv-list">
-        <view class="kv"><text class="kv-k">您的脸宽</text><text class="kv-v">{{frameRecommendation.faceWidth}} mm</text></view>
-        <view class="kv"><text class="kv-k">脸型</text><text class="kv-v">{{frameRecommendation.faceType}}</text></view>
-        <view class="kv"><text class="kv-k">推荐镜框宽度</text><text class="kv-v hl">{{frameRecommendation.minFrameWidth}}-{{frameRecommendation.maxFrameWidth}} mm</text></view>
-      </view>
-      <text class="card-note">{{frameRecommendation.desc}}</text>
     </view>
 
     <!-- 配镜建议（下单参数 + 复制） -->
@@ -203,8 +195,19 @@
       <text class="card-note" wx:if="{{lensAdvice}}">{{lensAdvice.disclaimer}}</text>
     </view>
 
+    <!-- 未付费：解锁后可见内容预告（让用户自己得出「值」的结论） -->
+    <view class="u-card" wx:if="{{!isPaid}}">
+      <text class="u-card-title">解锁后还可查看</text>
+      <view class="tip-list">
+        <view class="tip-item"><view class="tip-dot"></view><text class="tip-text">总瞳距与左右眼精确数值</text></view>
+        <view class="tip-item"><view class="tip-dot"></view><text class="tip-text">配镜下单参数，一键复制给商家</text></view>
+        <view class="tip-item"><view class="tip-dot"></view><text class="tip-text">镜片折射率与膜层建议</text></view>
+        <view class="tip-item"><view class="tip-dot"></view><text class="tip-text">结果保存到个人中心，随时回看</text></view>
+      </view>
+    </view>
+
     <text class="notice">仅供参考，不替代专业验光</text>
-    <view class="actionbar-spacer" wx:if="{{isPaid}}"></view>
+    <view class="actionbar-spacer"></view>
   </view>
 </scroll-view>
 
@@ -216,6 +219,11 @@
   </view>
 </view>
 
+<!-- 未付费吸底解锁栏（弹窗收起后仍可随时解锁） -->
+<view class="u-actionbar" wx:if="{{!isPaid && !showPayModal && !empty}}">
+  <button class="u-cta" bindtap="openPayModal">¥9.9 解锁本次结果</button>
+</view>
+
 <!-- 付费选择弹窗 -->
 <view class="pay-modal-mask" wx:if="{{showPayModal}}">
   <view class="pay-modal">
@@ -223,6 +231,7 @@
       <text class="pay-modal-title">解锁测量结果</text>
       <text class="pay-modal-close" bindtap="closePayModal">×</text>
     </view>
+    <text class="pay-modal-conf">已测出可信度「{{displayResult.confidence}}」的结果，支付后立即查看</text>
 
     <view class="pay-plans">
       <view class="pay-plan {{selectedPlan === 'single' ? 'selected' : ''}}" bindtap="selectPlan" data-plan="single">
@@ -231,6 +240,7 @@
         <view class="plan-features">
           <text class="plan-feature">· 拍 3 张照片，自动取中位数</text>
           <text class="plan-feature">· 解锁本次结果与配镜建议</text>
+          <text class="plan-feature">· 赠送一次精度复测权益</text>
         </view>
       </view>
 
@@ -240,8 +250,8 @@
         <text class="plan-name">年度会员</text>
         <view class="plan-features">
           <text class="plan-feature">· 一年内不限次数</text>
-          <text class="plan-feature">· 中位数推荐 · 数据保存</text>
-          <text class="plan-feature">· 随时回看</text>
+          <text class="plan-feature">· 精度复测不限次数</text>
+          <text class="plan-feature">· 中位数推荐 · 随时回看</text>
         </view>
       </view>
     </view>

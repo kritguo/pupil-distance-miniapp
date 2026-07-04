@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>PDgo App 精度测量</title>
+  <script src="https://res.wx.qq.com/open/js/jweixin-1.6.0.js"></script>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #171a21;
+      --muted: #777e8c;
+      --line: #eef0f4;
+      --orange: #ff6726;
+      --orange-strong: #ed3d13;
+      --orange-soft: #fff2ea;
+      --green: #2aa464;
+      --green-soft: #eaf7ef;
+      --bg: #fff8f3;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+      background: linear-gradient(180deg, #fff4ea 0%, #fff 42%, #f8f9fb 100%);
+      color: var(--ink);
+    }
+    .page {
+      width: min(100%, 480px);
+      min-height: 100vh;
+      margin: 0 auto;
+      padding: 28px 22px calc(28px + env(safe-area-inset-bottom));
+      display: flex;
+      flex-direction: column;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 10px 0 34px;
+    }
+    .icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, #ff8a3d, #f03d16);
+      color: #fff;
+      font-size: 18px;
+      font-weight: 800;
+      box-shadow: 0 12px 28px rgba(239, 88, 24, 0.24);
+    }
+    .brand-name {
+      display: block;
+      font-size: 20px;
+      font-weight: 800;
+      line-height: 1.25;
+    }
+    .brand-sub {
+      display: block;
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .badge {
+      align-self: flex-start;
+      padding: 7px 12px;
+      border-radius: 999px;
+      background: var(--orange-soft);
+      color: var(--orange-strong);
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .badge.member {
+      background: var(--green-soft);
+      color: var(--green);
+    }
+    h1 {
+      margin: 18px 0 12px;
+      font-size: 32px;
+      line-height: 1.16;
+      letter-spacing: 0;
+    }
+    .desc {
+      margin: 0;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.65;
+    }
+    .steps {
+      margin: 34px 0 26px;
+      padding: 20px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.82);
+    }
+    .step {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .step:last-child { border-bottom: 0; }
+    .dot {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+      background: var(--orange-soft);
+      color: var(--orange-strong);
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .step-title {
+      display: block;
+      font-size: 16px;
+      font-weight: 700;
+    }
+    .step-desc {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .actions {
+      margin-top: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .btn {
+      width: 100%;
+      min-height: 54px;
+      border: 0;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
+      font-size: 17px;
+      font-weight: 800;
+    }
+    .primary {
+      background: linear-gradient(90deg, var(--orange), var(--orange-strong));
+      color: #fff;
+      box-shadow: 0 14px 30px rgba(239, 88, 24, 0.24);
+    }
+    .secondary {
+      display: none;
+      position: relative;
+      border: 1px solid #ffd1bc;
+      background: #fff;
+      color: var(--orange-strong);
+      overflow: hidden;
+    }
+    .secondary.ready { display: flex; }
+    wx-open-launch-app {
+      position: absolute;
+      inset: 0;
+      opacity: 0.01;
+    }
+    .fallback {
+      text-align: center;
+      color: #9a9faa;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="brand">
+      <div class="icon">PD</div>
+      <div>
+        <span class="brand-name">PDgo 测瞳距</span>
+        <span class="brand-sub">App 精度测量承接页</span>
+      </div>
+    </section>
+
+    <span id="badge" class="badge">深度相机 · 更精准</span>
+    <h1 id="title">用 App 深度相机复测</h1>
+    <p id="desc" class="desc">用 iPhone 深度相机再确认一次，比照片测量更精准。</p>
+
+    <section class="steps" aria-label="使用步骤">
+      <div class="step">
+        <span class="dot">1</span>
+        <div>
+          <span class="step-title">下载 PDgo App</span>
+          <span class="step-desc">前往 App Store 下载，或已安装时直接打开。</span>
+        </div>
+      </div>
+      <div class="step">
+        <span class="dot">2</span>
+        <div>
+          <span class="step-title">打开 PDgo App</span>
+          <span class="step-desc">安装完成后打开 App，进入测量。</span>
+        </div>
+      </div>
+      <div class="step">
+        <span class="dot">3</span>
+        <div>
+          <span class="step-title">完成深度测量</span>
+          <span class="step-desc" id="stepBenefit">深度相机测量，几秒出结果。</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="actions">
+      <a id="storeBtn" class="btn primary" href="#" rel="noopener">前往 App Store 下载</a>
+      <div id="launchWrap" class="btn secondary">
+        <span>已安装，打开 PDgo App</span>
+        <wx-open-launch-app id="launchApp" appid="" extinfo="">
+          <script type="text/wxtag-template">
+            <style>.btn{height:54px;width:100%;}</style>
+            <button class="btn">打开 PDgo App</button>
+          </script>
+        </wx-open-launch-app>
+      </div>
+      <div id="fallback" class="fallback">如果没有自动打开，也可到 App Store 搜索「PDgo 测瞳距」。</div>
+    </section>
+  </main>
+
+  <script>
+    (function () {
+      var pageConfig = Object.assign({
+        appStoreUrl: 'https://apps.apple.com/cn/app/%E5%BF%AB%E9%80%9F%E6%B5%8B%E7%9E%B3%E8%B7%9Dpdgo/id6778687480',
+        searchKeyword: 'PDgo 测瞳距',
+        wxLaunchAppId: '',
+        jsSdkConfigUrl: ''
+      }, window.PDGO_DOWNLOAD_CONFIG || {});
+      var params = new URLSearchParams(window.location.search);
+      var plan = params.get('plan') === 'annual' ? 'annual' : 'single';
+      var keyword = params.get('keyword') || pageConfig.searchKeyword;
+      var source = params.get('source') || 'precision_retest';
+      var extinfo = JSON.stringify({ source: source, plan: plan });
+
+      var copy = plan === 'annual'
+        ? {
+          badge: '深度相机 · 更精准',
+          title: '用 App 深度相机测量',
+          desc: '用 iPhone 深度相机测量瞳距，比照片测量更精准。',
+          stepBenefit: '深度相机测量，几秒出结果。'
+        }
+        : {
+          badge: '深度相机 · 更精准',
+          title: '用 App 深度相机复测',
+          desc: '用 iPhone 深度相机再确认一次，比照片测量更精准。',
+          stepBenefit: '深度相机测量，几秒出结果。'
+        };
+
+      document.getElementById('badge').textContent = copy.badge;
+      document.getElementById('badge').className = plan === 'annual' ? 'badge member' : 'badge';
+      document.getElementById('title').textContent = copy.title;
+      document.getElementById('desc').textContent = copy.desc;
+      document.getElementById('stepBenefit').textContent = copy.stepBenefit;
+      document.getElementById('fallback').textContent = '如果没有自动打开，也可到 App Store 搜索「' + keyword + '」。';
+
+      var storeBtn = document.getElementById('storeBtn');
+      if (pageConfig.appStoreUrl) {
+        storeBtn.href = pageConfig.appStoreUrl;
+      } else {
+        storeBtn.href = 'https://apps.apple.com/search?term=' + encodeURIComponent(keyword);
+      }
+
+      var launchApp = document.getElementById('launchApp');
+      if (pageConfig.wxLaunchAppId && pageConfig.jsSdkConfigUrl && window.wx) {
+        launchApp.setAttribute('appid', pageConfig.wxLaunchAppId);
+        launchApp.setAttribute('extinfo', extinfo);
+        fetch(pageConfig.jsSdkConfigUrl + '?url=' + encodeURIComponent(location.href.split('#')[0]))
+          .then(function (res) { return res.json(); })
+          .then(function (sign) {
+            wx.config({
+              debug: false,
+              appId: sign.appId,
+              timestamp: sign.timestamp,
+              nonceStr: sign.nonceStr,
+              signature: sign.signature,
+              jsApiList: [],
+              openTagList: ['wx-open-launch-app']
+            });
+            wx.ready(function () {
+              document.getElementById('launchWrap').className = 'btn secondary ready';
+            });
+            wx.error(function () {
+              document.getElementById('launchWrap').className = 'btn secondary';
+            });
+          })
+          .catch(function () {
+            document.getElementById('launchWrap').className = 'btn secondary';
+          });
+      }
+    })();
+  </script>
+</body>
+</html>

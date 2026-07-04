@@ -1,134 +1,41 @@
 const userUtil = require('../../utils/user.js')
 const pay = require('../../utils/pay.js')
+const { MEASURE_TARGET_COUNT, resultRecordFields, buildSpreadDots, buildMedianResult } = require('../../utils/result_stats.js')
+const { buildLensAdvice } = require('../../utils/lens_advice.js')
+const measureEntry = require('../../utils/measure_entry.js')
 
-const roundToHalf = (value) => Math.round(value * 2) / 2
-const isNumber = (value) => typeof value === 'number' && !Number.isNaN(value)
-const MEASURE_TARGET_COUNT = 3
-const STABLE_TOTAL_SPREAD_MM = 2
-const USABLE_TOTAL_SPREAD_MM = 4
+const hasUsableRetestCredit = (out) => !!(out && out.ok && (out.granted || (out.retestCredits || 0) > 0))
 
-const resultRecordFields = (item) => ({
-  totalPd: item.totalPd,
-  leftPd: item.leftPd,
-  rightPd: item.rightPd,
-  nearTotalPd: item.nearTotalPd,
-  nearLeftPd: item.nearLeftPd,
-  nearRightPd: item.nearRightPd,
-  pdBasis: item.pdBasis,
-  faceWidth: item.faceWidth,
-  confidence: item.confidence,
-  timestamp: item.timestamp
-})
-
-const median = (values) => {
-  const list = values.filter(isNumber).slice().sort((a, b) => a - b)
-  if (!list.length) return null
-  const mid = Math.floor(list.length / 2)
-  if (list.length % 2 === 1) {
-    return list[mid]
-  }
-  return roundToHalf((list[mid - 1] + list[mid]) / 2)
-}
-
-const numericResults = (results) => (results || []).filter((item) => item
-  && isNumber(item.totalPd)
-  && isNumber(item.leftPd)
-  && isNumber(item.rightPd))
-
-// 三张总瞳距 → 波动点阵图数据。把每张的总 PD 映射到 10%~90% 轨道位置，标出中位数那张。
-const buildSpreadDots = (results, medianTotal) => {
-  const vals = numericResults(results).map((r) => r.totalPd)
-  if (vals.length < 2) return { dots: [], maxDiff: 0 }
-  const min = Math.min(...vals)
-  const max = Math.max(...vals)
-  const range = max - min
-  // 离中位数最近的那张标为高亮（只标一张）
-  let hiIdx = -1
-  if (isNumber(medianTotal)) {
-    let best = Infinity
-    vals.forEach((v, i) => {
-      const d = Math.abs(v - medianTotal)
-      if (d < best) { best = d; hiIdx = i }
-    })
-  }
-  const dots = vals.map((v, i) => ({
-    id: i,
-    pd: v,
-    left: range === 0 ? 50 : Math.round(10 + ((v - min) / range) * 80),
-    hi: i === hiIdx
-  }))
-  return { dots, maxDiff: roundToHalf(range) }
-}
-
-const spread = (values) => {
-  const list = values.filter(isNumber)
-  if (list.length < 2) return 0
-  return roundToHalf(Math.max(...list) - Math.min(...list))
-}
-
-const buildMedianResult = (results) => {
-  const usable = numericResults(results)
-  if (usable.length < MEASURE_TARGET_COUNT) return null
-  const preferred = usable.filter((item) => item.confidence !== '低')
-  const used = preferred.length >= MEASURE_TARGET_COUNT ? preferred : usable
-  const left = median(used.map(r => r.leftPd))
-  const right = median(used.map(r => r.rightPd))
-  const total = isNumber(left) && isNumber(right)
-    ? roundToHalf(left + right)
-    : median(used.map(r => r.totalPd))
-  const faceWidth = median(used.map(r => r.faceWidth))
-  const nearTotalPd = median(used.map(r => r.nearTotalPd))
-  const nearLeftPd = median(used.map(r => r.nearLeftPd))
-  const nearRightPd = median(used.map(r => r.nearRightPd))
-  const totalSpread = spread(used.map(r => r.totalPd))
-  const leftSpread = spread(used.map(r => r.leftPd))
-  const rightSpread = spread(used.map(r => r.rightPd))
-  let consistency = '稳定'
-  if (totalSpread > USABLE_TOTAL_SPREAD_MM) {
-    consistency = '波动大'
-  } else if (totalSpread > STABLE_TOTAL_SPREAD_MM || leftSpread > STABLE_TOTAL_SPREAD_MM || rightSpread > STABLE_TOTAL_SPREAD_MM) {
-    consistency = '一般'
+const buildPrecisionInvite = (platform, confidence, isUnlimited) => {
+  const weak = confidence && confidence !== '高'
+  if (platform === 'ios') {
+    // iOS 只做深度相机卖点引导；unionid 权益桥建好前，不承诺「免费/微信登录自动同步」
+    return {
+      target: 'ios_app',
+      planType: isUnlimited ? 'annual' : 'single',
+      planLabel: isUnlimited ? '会员' : '更精准',
+      title: weak ? '建议用 App 深度相机复测' : '用 App 深度相机再确认一次',
+      desc: 'PDgo App 用 iPhone 深度相机测量，比照片测量更精准。',
+      buttonText: weak ? '去用 App 深度测量' : '了解 App 深度测量'
+    }
   }
   return {
-    totalPd: total,
-    leftPd: left,
-    rightPd: right,
-    nearTotalPd,
-    nearLeftPd,
-    nearRightPd,
-    pdBasis: used.some(r => r.pdBasis === 'far') ? 'far' : (used[0] && used[0].pdBasis),
-    faceWidth,
-    confidence: consistency === '稳定' ? '高' : (consistency === '一般' ? '中' : '低'),
-    usedCount: used.length,
-    totalCount: usable.length,
-    totalSpread,
-    leftSpread,
-    rightSpread,
-    consistency,
-    warning: consistency === '波动大'
-      ? `三张结果最大相差 ${totalSpread}mm，建议按同一姿势重新测量一次（再拍 3 张）`
-      : (consistency === '一般'
-        ? `三次结果最大相差 ${totalSpread}mm，建议再测一次确认`
-        : '')
+    target: 'precision_card',
+    planType: isUnlimited ? 'annual' : 'single',
+    planLabel: isUnlimited ? '会员不限次' : '免费复测 1 次',
+    title: weak ? '建议用卡片精准确认一次' : '用卡片精准确认一次',
+    desc: isUnlimited
+      ? '会员可不限次用身份证或银行卡辅助校验，适合多次复测或给家人使用。'
+      : '照片测量可能存在轻微误差。已为你保留 1 次免费复测，可用身份证或银行卡辅助校验，再确认一遍。',
+    buttonText: isUnlimited ? '使用卡片精准确认' : '免费用卡片复测'
   }
 }
 
-// 镜片折射率推荐规则
-const LENS_INDEX_RULES = [
-  { maxDegree: 200, index: '1.56', name: '标准' },
-  { maxDegree: 400, index: '1.60', name: '轻薄' },
-  { maxDegree: 600, index: '1.67', name: '超薄' },
-  { maxDegree: 800, index: '1.71', name: '特薄' },
-  { maxDegree: Infinity, index: '1.74', name: '极薄' }
-]
-
-// 用途 → 膜层/说明（折射率与面型由度数另算；不再把普通阅读误判为渐进多焦点）
-const USAGE_ADVICE = {
-  daily:     { name: '日常通用', coating: '加硬膜 + 减反射(绿)膜', note: '日常室内外通用' },
-  bluelight: { name: '防蓝光',   coating: '加硬膜 + 防蓝光膜 + 减反射膜', note: '长时间看手机/电脑可选，缓解视疲劳' },
-  driving:   { name: '驾驶',     coating: '加硬膜 + 减反射膜 + 偏光/变色(户外)', note: '减少眩光，白天驾驶更清晰' },
-  reading:   { name: '阅读办公', coating: '加硬膜 + 减反射膜 + 抗疲劳设计', note: '近距离用眼多；若已老花，请验光后配渐进/双光镜' }
-}
+const isPrecisionMeasuredResult = (result, displayResult) => !!(
+  (result && result.measureMode === 'precision')
+  || (result && result.source === 'cloud_auto_precision')
+  || (displayResult && /^precision/.test(String(displayResult.pdBasis || '')))
+)
 
 Page({
   data: {
@@ -136,15 +43,18 @@ Page({
     displayResult: null,
     displayResultSource: '本次测量',
     measureName: '',   // 测量对象（给谁测的，可编辑、随记录保存）
-    freeRetestReady: false, // 本次结果中/低，已发放免费补测额度（下次测量不扣费）
+    freeRetestReady: false, // 已为当前付费结果发放免费精度复测额度（下次测量不扣费）
+    showManualRetestTip: false, // 旧字段保留给历史入口，当前结果页统一走精度复测邀请
+    retestRequesting: false,
     empty: false,
     // 付费相关
     showPayModal: false,
     isPaid: false,
     isUnlimited: false,
-    selectedPlan: 'unlimited', // single | unlimited
+    selectedPlan: 'single', // single | unlimited（默认 single，与首页「一次测量 ¥9.9」口径一致）
     fromRecord: false,
     trialMode: false,
+    forcePurchase: false,
     progressText: '',
     medianResult: null,
     medianWarning: '',
@@ -152,9 +62,10 @@ Page({
     spreadDots: [],
     spreadMaxDiff: 0,
     nextMeasureText: '再测一次',
+    clientPlatform: 'other',
+    precisionInvite: buildPrecisionInvite('other', ''),
+    showPrecisionInvite: false,
     trialResults: [],
-    // 镜框推荐（基于脸宽自动计算）
-    frameRecommendation: null,
     // 镜片建议（按验光单分左右眼：球镜 + 散光选填）
     sphL: '', sphR: '', cylL: '', cylR: '',
     usageOptions: [
@@ -174,6 +85,8 @@ Page({
       return
     }
     const fromRecord = options && options.fromRecord === '1'
+    const forcePurchase = options && options.forcePurchase === '1'
+    const clientPlatform = measureEntry.resolveClientPlatform()
     const hasTrialResults = userUtil.getTrialResults().length >= 3
     const hasBatchResults = userUtil.getSingleBatchResults().length >= 3
     const trialMode = !fromRecord && ((options && options.trial === '1') || hasTrialResults || hasBatchResults)
@@ -183,18 +96,48 @@ Page({
       displayResultSource: '本次测量',
       measureName: result.name || '',
       fromRecord,
-      trialMode
+      trialMode,
+      forcePurchase,
+      clientPlatform,
+      precisionInvite: buildPrecisionInvite(clientPlatform, result.confidence, false),
+      selectedPlan: forcePurchase ? 'single' : this.data.selectedPlan
     })
 
     // 先同步服务端权益，再检查付费状态
     this.initEntitlement()
 
-    // 自动计算镜框推荐
-    this.calcFrameRecommendation(result.faceWidth)
-
     if (trialMode) {
       this.loadTrialSummary()
     }
+  },
+
+  onShow() {
+    if (!this.data.isPaid || this.data.isUnlimited || this.data.fromRecord) return
+    const info = userUtil.getUserInfo()
+    if ((info.retestCredits || 0) <= 0 && this.data.freeRetestReady) {
+      this.setData({ freeRetestReady: false })
+    }
+    this.refreshPrecisionInvite()
+  },
+
+  buildPrecisionInvitePatch(displayResult, overrides) {
+    const state = { ...this.data, ...(overrides || {}) }
+    const primary = displayResult || state.displayResult
+    const invite = buildPrecisionInvite(state.clientPlatform, primary && primary.confidence, state.isUnlimited)
+    const precisionHighDone = isPrecisionMeasuredResult(state.result, primary)
+      && primary
+      && primary.confidence === '高'
+      && !state.isUnlimited
+    const showPrecisionInvite = !!(state.isPaid && !state.fromRecord && primary && !precisionHighDone)
+    return {
+      precisionInvite: invite,
+      showPrecisionInvite,
+      nextMeasureText: state.fromRecord ? '再测一次' : invite.buttonText
+    }
+  },
+
+  refreshPrecisionInvite(displayResult) {
+    this.setData(this.buildPrecisionInvitePatch(displayResult))
   },
 
   // 同步服务端权益后再检查付费状态
@@ -228,6 +171,11 @@ Page({
       return
     }
 
+    if (this.data.forcePurchase) {
+      this.setData({ isPaid: false, isUnlimited: false, showPayModal: true })
+      return
+    }
+
     // 单次/未付费：由服务端判定这条结果能否查看（consume 幂等，不会重复扣费）
     if (result && result.timestamp) {
       pay.consume(result.timestamp).then((out) => {
@@ -245,7 +193,7 @@ Page({
           this.setData({ isPaid: true, isUnlimited: false, showPayModal: false })
           this.updateProgress()
           this.saveRecord()   // 单次结果也存进个人中心
-          this.maybeGrantRetest()   // 中/低则发免费补测额度
+          this.maybeGrantRetest()   // 普通首测发精度复测额度；精度复测中/低继续发
         } else {
           // 没有次数 / 未购买 -> 付费弹窗
           this.setData({ isPaid: false, showPayModal: true })
@@ -273,11 +221,23 @@ Page({
       spreadMaxDiff: spread.maxDiff,
       displayResult,
       displayResultSource: medianResult ? '三次中位数推荐' : '本次测量',
+      showManualRetestTip: false,
       progressText: results.length >= MEASURE_TARGET_COUNT
         ? `已完成 ${MEASURE_TARGET_COUNT} 次测量，优先使用中位数结果`
-        : ''
+        : '',
+      ...this.buildPrecisionInvitePatch(displayResult)
     })
-    this.calcFrameRecommendation(displayResult && displayResult.faceWidth)
+  },
+
+  canShowManualRetestTip(displayResult) {
+    const { isPaid, isUnlimited, fromRecord, result } = this.data
+    return !!(isPaid
+      && !isUnlimited
+      && !fromRecord
+      && result
+      && result.timestamp
+      && displayResult
+      && displayResult.confidence === '高')
   },
 
   updateProgress() {
@@ -302,9 +262,9 @@ Page({
         spreadMaxDiff: spread.maxDiff,
         displayResult,
         displayResultSource: medianResult ? `${count} 次中位数推荐` : '本次测量',
-        nextMeasureText: medianResult && medianResult.consistency !== '稳定' ? '再测一次确认' : '继续测量'
+        showManualRetestTip: false,
+        ...this.buildPrecisionInvitePatch(displayResult)
       })
-      this.calcFrameRecommendation(displayResult && displayResult.faceWidth)
       return
     }
 
@@ -317,10 +277,6 @@ Page({
     const medianResult = count >= total ? buildMedianResult(batchResults) : null
     const displayResult = medianResult || result
     const spread = buildSpreadDots(batchResults, medianResult && medianResult.totalPd)
-    const nextMeasureText = count < total
-      ? `继续第 ${count + 1} 次测量`
-      : (medianResult && medianResult.consistency !== '稳定' ? '再测一次确认' : '再测一次')
-
     this.setData({
       progressText,
       medianResult,
@@ -330,9 +286,9 @@ Page({
       spreadMaxDiff: spread.maxDiff,
       displayResult,
       displayResultSource: medianResult ? '三次中位数推荐' : '本次测量',
-      nextMeasureText
+      showManualRetestTip: false,
+      ...this.buildPrecisionInvitePatch(displayResult)
     })
-    this.calcFrameRecommendation(displayResult && displayResult.faceWidth)
   },
 
   // 保存测量记录（存推荐的中位数结果 + 测量对象名字；按会话时间戳去重）
@@ -401,88 +357,41 @@ Page({
     }
   },
 
-  // 单次套餐：把试测/当前结果并入三次包，并按结果时间戳逐条向服务端解锁（扣次，幂等）
+  // 单次套餐：把试测/当前结果并入三次包，并用最终结果时间戳向服务端解锁一次（扣次，幂等）
   absorbResultsAsSingle(trialMode) {
     const results = trialMode
       ? userUtil.getTrialResults()
       : (this.data.result ? [this.data.result] : [])
 
-    const consumeNext = (list, i) => {
-      if (i >= list.length) {
-        if (trialMode) {
-          userUtil.resetTrialBatch()
-          this.loadTrialSummary()
-        } else {
-          this.updateProgress()
-        }
-        this.saveRecord()   // 付费解锁后存进个人中心
-        this.maybeGrantRetest()   // 中/低则发免费补测额度
-        this.setData({ isUnlimited: userUtil.isUnlimited() })
-        return
-      }
-      const item = list[i]
-      if (!item || !item.timestamp) {
-        consumeNext(list, i + 1)
-        return
-      }
-      userUtil.addSingleResult(item)
-      pay.consume(item.timestamp).then(() => {
-        userUtil.setLastUnlockedResult(item.timestamp)
-        consumeNext(list, i + 1)
-      })
+    if (trialMode && results.length) {
+      userUtil.resetSingleBatch()
     }
-    consumeNext(results, 0)
+    results.forEach((item) => userUtil.addSingleResult(item))
+    const unlockKey = this.data.result && this.data.result.timestamp
+    if (!unlockKey) return
+
+    pay.consume(unlockKey, { preferPaid: this.data.forcePurchase }).then(() => {
+      userUtil.setLastUnlockedResult(unlockKey)
+      if (trialMode) {
+        userUtil.resetTrialBatch()
+        this.loadTrialSummary()
+      } else {
+        this.updateProgress()
+      }
+      this.saveRecord()   // 付费解锁后存进个人中心
+      this.maybeGrantRetest()   // 普通首测发精度复测额度；精度复测中/低继续发
+      this.setData({ isUnlimited: userUtil.isUnlimited() })
+    })
   },
 
-  // 关闭付费弹窗
+  // 关闭付费弹窗：真实收起，露出打码的报告骨架；吸底解锁栏可随时再次打开
   closePayModal() {
-    // 未付费不能关闭弹窗，只能返回
-    wx.showModal({
-      title: '提示',
-      content: '需要付费后才能查看结果，是否返回？',
-      confirmText: '返回',
-      cancelText: '继续付费',
-      success: (res) => {
-        if (res.confirm) {
-          wx.navigateBack()
-        }
-      }
-    })
+    this.setData({ showPayModal: false })
   },
 
-  // 基于脸宽计算镜框推荐
-  calcFrameRecommendation(faceWidth) {
-    if (!faceWidth || faceWidth < 100 || faceWidth > 200) {
-      this.setData({ frameRecommendation: null })
-      return
-    }
-
-    // 镜框总宽一般比脸宽小 5-15mm 为宜
-    const minFrameWidth = Math.round(faceWidth - 15)
-    const maxFrameWidth = Math.round(faceWidth - 5)
-
-    // 根据脸宽给出脸型描述
-    let faceType, desc
-    if (faceWidth < 130) {
-      faceType = '窄脸'
-      desc = '建议选择小框或中小框眼镜'
-    } else if (faceWidth < 145) {
-      faceType = '中等'
-      desc = '大多数镜框都适合，可根据风格选择'
-    } else {
-      faceType = '宽脸'
-      desc = '建议选择大框或宽版镜框'
-    }
-
-    this.setData({
-      frameRecommendation: {
-        faceWidth: Math.round(faceWidth),
-        minFrameWidth,
-        maxFrameWidth,
-        faceType,
-        desc
-      }
-    })
+  // 吸底「解锁」按钮 → 重新打开付费弹窗
+  openPayModal() {
+    this.setData({ showPayModal: true })
   },
 
   // 度数/散光输入（左右眼，data-field 指定字段）
@@ -496,59 +405,24 @@ Page({
     this.setData({ selectedUsage: e.detail.value })
   },
 
-  // 计算镜片建议（严谨版：左右眼 球镜+散光 → 有效度数 → 折射率/面型；接入测得 PD）
+  // 计算镜片建议（规则在 utils/lens_advice.js，已被测试覆盖；页面只管收输入与展示）
   calcLensAdvice() {
     const { sphL, sphR, cylL, cylR, selectedUsage, displayResult, result } = this.data
-    const nL = parseFloat(sphL) || 0
-    const nR = parseFloat(sphR) || 0
-    const cL = parseFloat(cylL) || 0
-    const cR = parseFloat(cylR) || 0
-
-    if (nL <= 0 && nR <= 0) {
-      wx.showToast({ title: '请至少输入一只眼的度数', icon: 'none' })
-      return
-    }
-    if ([nL, nR, cL, cR].some((v) => v < 0 || v > 3000)) {
-      wx.showToast({ title: '度数请填 0–3000', icon: 'none' })
-      return
-    }
-
-    // 有效度数 = 球镜 + 散光；折射率按更高那只眼来定（镜片越厚越需要高折射率）
-    const effL = Math.round(nL + cL)
-    const effR = Math.round(nR + cR)
-    const maxEff = Math.max(effL, effR)
-
-    let idx = LENS_INDEX_RULES[LENS_INDEX_RULES.length - 1]
-    for (const rule of LENS_INDEX_RULES) {
-      if (maxEff <= rule.maxDegree) { idx = rule; break }
-    }
-
-    const lensShape = maxEff >= 600 ? '双面非球面' : '非球面'
-    const usage = USAGE_ADVICE[selectedUsage] || USAGE_ADVICE.daily
-    const anisoDiff = Math.abs(effL - effR)
-    const aniso = anisoDiff >= 250
     const primary = displayResult || result
-    const pd = primary && primary.totalPd
-
-    this.setData({
-      lensAdvice: {
-        effL,
-        effR,
-        index: idx.index,
-        indexName: idx.name,
-        lensShape,
-        coating: usage.coating,
-        usageNote: usage.note,
-        pd: pd || null,
-        aniso,
-        anisoDiff,
-        disclaimer: '仅供选片参考。实际配镜请以验光单(含散光轴位)和验光师建议为准。'
-      }
+    const out = buildLensAdvice({
+      sphL, sphR, cylL, cylR,
+      usage: selectedUsage,
+      pd: primary && primary.totalPd
     })
+    if (!out.ok) {
+      wx.showToast({ title: out.error, icon: 'none' })
+      return
+    }
+    this.setData({ lensAdvice: out.advice })
   },
 
   onCopy() {
-    const { result, displayResult, displayResultSource, frameRecommendation, lensAdvice, medianResult, isPaid } = this.data
+    const { result, displayResult, displayResultSource, lensAdvice, medianResult, isPaid } = this.data
     if (!isPaid) {
       wx.showToast({ title: '请先解锁结果', icon: 'none' })
       return
@@ -591,13 +465,6 @@ Page({
       }
     }
 
-    if (frameRecommendation) {
-      lines.push('')
-      lines.push('【镜框推荐】')
-      lines.push(`推荐镜框宽度：${frameRecommendation.minFrameWidth}-${frameRecommendation.maxFrameWidth} mm`)
-      lines.push(`脸型：${frameRecommendation.faceType}`)
-    }
-
     if (lensAdvice) {
       lines.push('')
       lines.push('【镜片建议】')
@@ -621,18 +488,100 @@ Page({
     })
   },
 
-  // 本次结果可信度中/低 → 申请免费补测额度（下次测量不扣费，直到测出「高」为止）
-  // 年度会员本就不限次、从历史进入不发；只对单次付费用户的中/低结果发放
+  // 普通首测解锁后 → 赠送一次精度复测；精度复测仍中/低 → 继续发精度复测额度，直到测出「高」。
+  // 年度会员本就不限次、从历史进入不发。
   maybeGrantRetest() {
     const { isUnlimited, fromRecord, result, displayResult } = this.data
     if (isUnlimited || fromRecord || !result || !result.timestamp) return
-    const conf = displayResult && displayResult.confidence
-    if (conf !== '中' && conf !== '低') return
-    pay.grantRetest(result.timestamp).then((out) => {
-      if (out && (out.granted || out.reason === 'already_granted')) {
+    const primary = displayResult || result
+    const isPrecisionResult = isPrecisionMeasuredResult(result, primary)
+    const conf = primary && primary.confidence
+    if (isPrecisionResult && conf === '高') return
+    return pay.grantRetest(result.timestamp, isPrecisionResult ? 'precision_quality' : 'precision_invite').then((out) => {
+      if (hasUsableRetestCredit(out)) {
         this.setData({ freeRetestReady: true })
       }
     })
+  },
+
+  primeLocalPrecisionRetestCredit() {
+    const info = userUtil.getUserInfo()
+    if ((info.retestCredits || 0) <= 0) {
+      info.retestCredits = 1
+      userUtil.saveUserInfo(info)
+    }
+    this.setData({ freeRetestReady: true })
+  },
+
+  grantPrecisionRetestInBackground(reason) {
+    const { isUnlimited, result } = this.data
+    if (isUnlimited || !result || !result.timestamp) return
+    pay.grantRetest(result.timestamp, reason || 'precision_invite').then((out) => {
+      if (hasUsableRetestCredit(out)) {
+        this.setData({ freeRetestReady: true })
+      }
+    })
+  },
+
+  navigateToAppDownload(plan) {
+    const query = [
+      `plan=${encodeURIComponent(plan || 'single')}`,
+      'source=precision_retest'
+    ].join('&')
+    wx.navigateTo({ url: `/pages/app-download/app-download?${query}` })
+  },
+
+  onPrecisionRetest() {
+    if (this.data.precisionInvite.target === 'ios_app') {
+      // iOS：纯 App 引导（深度相机卖点），不做额度前置校验、不弹阻断窗，直达下载承接页
+      this.navigateToAppDownload(this.data.isUnlimited ? 'annual' : 'single')
+      return
+    }
+    if (this.data.isUnlimited) {
+      this.navigateToMeasure('precision')
+      return
+    }
+    this.primeLocalPrecisionRetestCredit()
+    this.grantPrecisionRetestInBackground('precision_card')
+    this.navigateToMeasure('precision')
+  },
+
+  /*
+   * 兼容旧入口：页面上不再展示普通重测入口，统一转到精度复测。
+   */
+  onFreeRetest() {
+    this.onPrecisionRetest()
+  },
+
+  onManualRetest() {
+    this.onPrecisionRetest()
+  },
+
+  /*
+   * 旧复测申请函数仍保留给测试/历史入口兜底，默认走精度模式。
+   */
+  requestRetestCredit(reason, targetMode) {
+    const { result, retestRequesting } = this.data
+    if (!result || !result.timestamp || retestRequesting) return
+    this.setData({ retestRequesting: true })
+    pay.grantRetest(result.timestamp, reason).then((out) => {
+      this.setData({ retestRequesting: false })
+      if (hasUsableRetestCredit(out)) {
+        this.setData({ freeRetestReady: true, showManualRetestTip: false })
+        this.navigateToMeasure(targetMode || 'precision')
+        return
+      }
+      wx.showModal({
+        title: '暂时不能免费精度复测',
+        content: '这条结果的免费精度复测权益可能已经用完。你仍可以重新测量，但需要重新购买或使用会员次数。',
+        showCancel: false,
+        confirmText: '知道了'
+      })
+    })
+  },
+
+  navigateToMeasure(mode) {
+    wx.navigateTo({ url: measureEntry.buildMeasureUrl({ mode }) })
   },
 
   // 编辑「测量对象」名字（同步到本次结果缓存 + 已保存记录）
@@ -665,9 +614,11 @@ Page({
   },
 
   onRetake() {
-    wx.navigateTo({
-      url: '/pages/measure/measure'
-    })
+    if (this.data.isPaid && !this.data.fromRecord) {
+      this.onPrecisionRetest()
+      return
+    }
+    this.navigateToMeasure('normal')
   },
 
   onBackHome() {
