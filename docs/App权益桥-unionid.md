@@ -71,7 +71,18 @@ Base：`POST https://cloud1-0gahgwwra45a0df3-1394475227.ap-shanghai.app.tcloudba
 
 ### B. iOS 工程配置（App 开发做）
 
-**B-0 Universal Link（微信 SDK 硬性要求）**：需要一个 HTTPS 域名放校验文件 `https://<域名>/.well-known/apple-app-site-association`（JSON，含 `appID = <TeamID>.<BundleID>`）。可用 pdgoeye.com（Universal Link 不要求备案，DNS+HTTPS 通即可）；等不及也可以先用 CloudBase 静态托管域名（把 TeamID+BundleID 发我，AASA 文件我可以直接传上去）。
+**B-0 Universal Link（微信 SDK 硬性要求）——已就绪 ✅（2026-07-05 实测通过）**：
+
+| 项 | 值 |
+|---|---|
+| Apple TeamID | `2TWBH22ZPF` |
+| Bundle ID | `com.backtonow.app.PDgo` |
+| Universal Link（填微信开放平台） | `https://getpdgo.com/app/` |
+| AASA 校验文件 | `https://getpdgo.com/.well-known/apple-app-site-association`（200 无跳转、application/json、appID/paths 均已实测正确） |
+| Xcode Associated Domains | `applinks:getpdgo.com` |
+| WXApi.registerApp 的 universalLink | `https://getpdgo.com/app/` |
+
+> 注意：getpdgo.com（Cloudflare 托管）用于 Universal Link 没问题（苹果/微信不要求备案）；但它**不能**当微信小程序「业务域名」（那个要 ICP 备案），App 下载 H5 仍走 CloudBase 域名 / 未来 pdgoeye.com。
 
 **B-1 装 SDK**：CocoaPods `pod 'WechatOpenSDK-XCFramework'`（或官方最新分发方式）。
 
