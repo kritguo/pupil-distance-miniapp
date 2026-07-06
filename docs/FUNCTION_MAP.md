@@ -91,6 +91,6 @@ Last updated: 2026-07-04
 | 结果页统计逻辑零测试 | closed (2026-06-10) | 已抽到 `utils/result_stats.js` + `utils/lens_advice.js`，新增 16 个测试（result-stats/lens-advice.test.js） |
 | 超 300 行文件 | open | `measure.js`(593，已从 714 减) `result.js`(556，已从 774 减) `vpayConfirm/index.js`(480，加了播报/流水号，近 500 红线，下次动它时把 httpPostJson 抽成独立 http 模块) `user.js`(388) `adminStats/helpers.js`(361，单一主题:统计/订单纯函数)。两个页面剩余均为页面级状态机+UI 处理，再拆收益递减 |
 | `detectCard` 无调用方 | closed (2026-06-10) | 已删除代码与部署配置；线上函数待控制台手动删除 |
-| App 权益桥休眠中 | open | appBridge 已就绪但未激活：等开放平台绑定+env+网关路由+App接入；激活前小程序/H5 文案不承诺同步（docs/App权益桥-unionid.md） |
+| App 权益桥 | **paused（owner 2026-07-06 决策：暂缓，后续再优化）** | 云端半座桥已完成并推送：`appBridge`(login/entitlement/redeemRetest) + unionid 落库(getEntitlement 懒回填 / vpayConfirm 付款时落) + 6 个测试；Universal Link 已实测就绪（TeamID `2TWBH22ZPF`、Bundle `com.backtonow.app.PDgo`、`getpdgo.com` AASA 200/json/无跳转）。**恢复清单**：①开放平台注册移动应用+绑定小程序(owner) ②appBridge 配 OPEN_APP_ID/OPEN_APP_SECRET/BRIDGE_SESSION_SECRET ③IDE 部署 appBridge/getEntitlement/vpayConfirm ④HTTP 网关加路由 `/appBridge` ⑤App 接微信 SDK。全手册：docs/App权益桥-unionid.md。激活前小程序/H5 文案不承诺同步（测试断言把关），未激活对现网零影响 |
 | `isNumber/roundToHalf` 三处重复定义 | open (减为 2 处) | result.js 已改用 pd.js 导出；user.js 仍有本地 isNumber |
 | 镜框推荐永不渲染（地图-代码漂移） | closed (2026-06-10) | 已下线死 UI（删卡片+`calcFrameRecommendation`+onCopy 段落）。脸宽字段保留在记录 schema；如需复活，云端 `main.py` 补人脸宽度输出即可，旧实现在 git 历史 |

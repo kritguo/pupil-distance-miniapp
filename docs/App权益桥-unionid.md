@@ -4,12 +4,14 @@
 
 一句话原理：小程序和 App 绑到**同一个微信开放平台账号**后，两边登录都能拿到同一个 `unionid`；云端 `users` 表落 `unionid`，App 凭它查权益/核销。
 
-## 状态
+## 状态（⏸ 2026-07-06 owner 决策：暂停，后续再优化）
 
-- ✅ 云端半座桥已建好（本仓库）：unionid 落库 + `appBridge` 云函数（login / entitlement / redeemRetest）
-- ⏳ 等 owner：微信开放平台绑定（下面第 1 步）
-- ⏳ 等 App 端：接微信登录 OpenSDK + 调下面三个接口
-- 🔒 绑定完成并端到端验证前，小程序/H5 文案**不承诺**「登录同步/免费」（有测试断言把关）
+**暂停点快照——恢复时从「上线步骤」第 1 步接着走即可：**
+
+- ✅ 云端半座桥已完成并推送：unionid 落库（getEntitlement 懒回填 / vpayConfirm 付款时落）+ `appBridge` 云函数（login / entitlement / redeemRetest，HMAC 票据 7 天、核销幂等）+ 6 个单测
+- ✅ Universal Link 已实测就绪（2026-07-05）：TeamID `2TWBH22ZPF` / Bundle `com.backtonow.app.PDgo` / `getpdgo.com` AASA 200·json·无跳转——App 侧这块不用再动
+- ⏳ 未做（恢复清单）：①开放平台注册移动应用+绑定小程序（owner，表单值见 B-0）②appBridge 三个环境变量 ③IDE 部署 appBridge/getEntitlement/vpayConfirm ④HTTP 网关加路由 `/appBridge` ⑤App 接微信 OpenSDK（手册 B 节）
+- 🔒 未激活期间对现网**零影响**（云函数休眠、无 env 即 NO_CONFIG）；小程序/H5 文案**不承诺**「登录同步/免费」（有测试断言把关），端到端验证通过才解禁话术
 
 ## 上线步骤（按顺序）
 
